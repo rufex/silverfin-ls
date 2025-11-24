@@ -18,3 +18,31 @@ Language Server Protocol (LSP) implementation for Silverfin Liquid templates.
 - Tracks line ranges for accurate navigation
 - Parses liquid using Tree-sitter
 
+## Configuration
+
+The language server supports the following configuration options:
+- Hover Documentation
+- Log Level
+
+**VS Code (settings.json):**
+```json
+{
+  "liquidLS": {
+    "hover": {
+      "enabled": false
+    },
+    "logLevel": "debug"
+  }
+}
+```
+
+**Neovim:**
+```lua
+init_options = {
+  hover = {
+    enabled = false
+  },
+  logLevel = "debug"
+}
+```
+

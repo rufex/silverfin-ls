@@ -8,6 +8,7 @@ import {
   Connection,
   Hover,
   Definition,
+  DidChangeConfigurationNotification,
 } from "vscode-languageserver/node";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -16,6 +17,18 @@ import { Logger } from "./logger";
 import { HoverProvider } from "./lspCapabilities/hoverProvider";
 import { DefinitionProvider } from "./lspCapabilities/definitionProvider";
 
+interface LSSettings {
+  hover?: {
+    enabled?: boolean;
+  };
+  logLevel?: string;
+}
+
+const DEFAULT_SETTINGS: LSSettings = {
+  hover: { enabled: true },
+  logLevel: "info",
+};
+
 export class LiquidLanguageServer {
   private connection: Connection;
   private documents: TextDocuments<TextDocument> = new TextDocuments(
@@ -23,6 +36,9 @@ export class LiquidLanguageServer {
   );
   private logger: Logger;
   private workspaceRoot: string | null = null;
+  private hasConfigurationCapability: boolean = false;
+  private hasWorkspaceFolderCapability: boolean = false;
+  private settings: LSSettings = DEFAULT_SETTINGS;
 
   constructor(connection?: Connection) {
     this.connection = connection || createConnection(ProposedFeatures.all);
@@ -33,18 +49,31 @@ export class LiquidLanguageServer {
 
   private setupHandlers(): void {
     this.connection.onInitialize((params: InitializeParams) => {
-      // Update log level from initialization options if provided
+      // Update log level and settings from initialization options if provided
       const initOptions = params.initializationOptions as
-        | { logLevel?: string }
+        | LSSettings
         | undefined;
 
-      const logLevel = initOptions?.logLevel || "info";
+      if (initOptions) {
+        this.settings = { ...DEFAULT_SETTINGS, ...initOptions };
+      }
+
+      const logLevel = this.settings.logLevel || DEFAULT_SETTINGS.logLevel!;
       Logger.configure({
         level: logLevel,
       });
       this.logger.info(`Log level set to: ${logLevel}`);
 
       this.logger.info("Server initializing");
+
+      // Check client capabilities
+      const capabilities = params.capabilities;
+      this.hasConfigurationCapability = !!(
+        capabilities.workspace && !!capabilities.workspace.configuration
+      );
+      this.hasWorkspaceFolderCapability = !!(
+        capabilities.workspace && !!capabilities.workspace.workspaceFolders
+      );
 
       if (params.rootUri) {
         this.workspaceRoot = URI.parse(params.rootUri).fsPath;
@@ -59,6 +88,13 @@ export class LiquidLanguageServer {
           textDocumentSync: TextDocumentSyncKind.Full,
           hoverProvider: true,
           definitionProvider: true,
+          ...(this.hasConfigurationCapability && {
+            workspace: {
+              workspaceFolders: {
+                supported: this.hasWorkspaceFolderCapability,
+              },
+            },
+          }),
         },
       };
       return result;
@@ -66,6 +102,29 @@ export class LiquidLanguageServer {
 
     this.connection.onInitialized(() => {
       this.logger.info("Server initialized");
+
+      if (this.hasConfigurationCapability) {
+        // Register for all configuration changes
+        this.connection.client.register(
+          DidChangeConfigurationNotification.type,
+          undefined,
+        );
+      }
+    });
+
+    this.connection.onDidChangeConfiguration((change) => {
+      if (this.hasConfigurationCapability) {
+        // Reset all cached document settings
+        this.logger.info("Configuration changed, updating settings");
+      } else {
+        this.settings = {
+          ...DEFAULT_SETTINGS,
+          ...(change.settings.liquidLS || {}),
+        };
+      }
+      this.logger.info(
+        `Hover enabled: ${this.settings.hover?.enabled ?? DEFAULT_SETTINGS.hover!.enabled}`,
+      );
     });
 
     // this.connection.onDidChangeWatchedFiles((_change) => {
@@ -79,6 +138,11 @@ export class LiquidLanguageServer {
     // });
 
     this.connection.onHover(async (params): Promise<Hover | null> => {
+      if (!(this.settings.hover?.enabled ?? DEFAULT_SETTINGS.hover!.enabled)) {
+        this.logger.debug("Hover is disabled in settings");
+        return null;
+      }
+
       this.logger.logRequest("onHover", params);
       this.connection.console.log(
         `Hover request for: ${params.textDocument.uri}`,
