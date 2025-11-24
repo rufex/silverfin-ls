@@ -2,6 +2,7 @@ import { Logger } from "../logger";
 import { TemplatePartsMapper } from "./templatePartsMapper";
 import { URI } from "vscode-uri";
 import { parseTemplateUri } from "../utils/templateUriParser";
+import { ConfigurationReader } from "../utils/configurationReader";
 import {
   TemplateTypes,
   TemplateParts,
@@ -24,9 +25,11 @@ export class TemplatePartsCollectionManager {
   private logger: Logger = new Logger("TemplatePartsCollectionManager");
   private loadedMaps: TemplateCollection = new Map();
   private templatePartsMapper: TemplatePartsMapper;
+  private configurationReader: ConfigurationReader;
 
   private constructor(workspaceRoot: string) {
     this.templatePartsMapper = new TemplatePartsMapper(workspaceRoot);
+    this.configurationReader = new ConfigurationReader(workspaceRoot);
   }
 
   /**
@@ -134,14 +137,31 @@ export class TemplatePartsCollectionManager {
       return null;
     }
 
-    const parts = await this.getMap(
-      templateUriInfo.templateType,
-      templateUriInfo.templateName,
-    );
+    let templateType = templateUriInfo.templateType;
+    let templateName = templateUriInfo.templateName;
 
+    // If it's a shared part, use configuration to determine context template
+    if (templateUriInfo.templateType === "sharedPart") {
+      const currentTemplate = this.configurationReader.getCurrentTemplate();
+      if (!currentTemplate) {
+        this.logger.warn(
+          `Shared part detected but no currentTemplate in liquid-ls.json: ${textDocumentUri}`,
+        );
+        return null;
+      }
+
+      this.logger.info(
+        `Using configuration context for shared part: ${currentTemplate.type}/${currentTemplate.handle}`,
+      );
+
+      templateType = currentTemplate.type;
+      templateName = currentTemplate.handle;
+    }
+
+    const parts = await this.getMap(templateType, templateName);
     if (!parts) {
       this.logger.warn(
-        `No template parts found for URI: ${textDocumentUri} (type: ${templateUriInfo.templateType}, name: ${templateUriInfo.templateName})`,
+        `No template parts found for URI: ${textDocumentUri} (type: ${templateType}, name: ${templateName})`,
       );
       return null;
     }
@@ -151,10 +171,7 @@ export class TemplatePartsCollectionManager {
       textDocumentUri,
       currentLine,
     );
-    return {
-      templateParts: parts,
-      currentFileIndex: index,
-    };
+    return { templateParts: parts, currentFileIndex: index };
   }
 
   /**

@@ -4,6 +4,8 @@ export type TemplateTypes =
   | "exportFile"
   | "accountTemplate";
 
+export type MainTemplateTypes = Exclude<TemplateTypes, "sharedPart">;
+
 export type TemplatePartType = "main" | "textPart" | "sharedPart";
 
 export interface TemplatePart {

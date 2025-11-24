@@ -21,8 +21,23 @@ Language Server Protocol (LSP) implementation for Silverfin Liquid templates.
 ## Configuration
 
 The language server supports the following configuration options:
-- Hover Documentation
-- Log Level
+
+### Hover Documentation
+You can disable hover documentation by setting `hover.enabled` to `false`.
+
+### Template Context Resolution
+When working from shared parts, the language server needs to know which template context to use since shared parts can be included in multiple templates. Create a `liquid-ls.json` file in your workspace root:
+
+```json
+{
+  "currentTemplate": {
+    "type": "reconciliationText",
+    "handle": "my_template_handle"
+  }
+}
+```
+
+Valid template types are: `"reconciliationText"`, `"accountTemplate"`, `"exportFile"`
 
 **VS Code (settings.json):**
 ```json
