@@ -38,7 +38,7 @@ export class TranslationProvider {
     const keyNode = node.childForFieldName("key");
     if (keyNode && keyNode.type === "string") {
       const key = this.extractTranslationKey(keyNode);
-      result.push(`Translation: ${key}`);
+      result.push(`### Translation: ${key}`);
       result.push(""); // Empty line
     }
 
@@ -47,6 +47,9 @@ export class TranslationProvider {
       (child) => child.type === "locale_declaration",
     );
 
+    // Extract and sort locale declarations
+    const locales: { key: string; value: string }[] = [];
+    
     for (const declaration of localeDeclarations) {
       const keyNode = declaration.childForFieldName("key");
       const valueNode = declaration.childForFieldName("value");
@@ -54,12 +57,23 @@ export class TranslationProvider {
       if (keyNode && valueNode?.type === "string") {
         const localeKey = keyNode.text;
         const localeValue = this.extractTranslationKey(valueNode);
-
-        result.push(`${localeKey}: ${localeValue}`);
+        locales.push({ key: localeKey, value: localeValue });
       }
     }
 
-    return result.join("\n");
+    // Sort: 'default' first, then alphabetically by key
+    locales.sort((a, b) => {
+      if (a.key === "default") return -1;
+      if (b.key === "default") return 1;
+      return a.key.localeCompare(b.key);
+    });
+
+    // Add sorted locales to result
+    for (const locale of locales) {
+      result.push(`**${locale.key}:** "${locale.value}"`);
+    }
+
+    return result.join("  \n");
   }
 
   private extractTranslationKey(stringNode: Parser.SyntaxNode): string {

@@ -9,6 +9,7 @@ import {
   Hover,
   Definition,
   DidChangeConfigurationNotification,
+  MarkupKind,
 } from "vscode-languageserver/node";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -152,7 +153,10 @@ export class LiquidLanguageServer {
       const response = await hoverProvider.handleHoverRequest();
       if (response) {
         return {
-          contents: response,
+          contents: {
+            kind: MarkupKind.Markdown,
+            value: response,
+          },
         };
       }
       return null;
