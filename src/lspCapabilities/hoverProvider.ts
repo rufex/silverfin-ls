@@ -1,4 +1,4 @@
-import { DocumentationProvider } from "./documentationProvider";
+// import { DocumentationProvider } from "./documentationProvider";
 import { Logger } from "../logger";
 import { HoverParams } from "vscode-languageserver/node";
 import { URI } from "vscode-uri";
@@ -12,14 +12,14 @@ export class HoverProvider {
   private textDocumentUri: HoverParams["textDocument"]["uri"];
   private position: HoverParams["position"];
   private logger: Logger;
-  private documentationProvider: DocumentationProvider;
+  // private documentationProvider: DocumentationProvider;
 
   constructor(params: HoverParams, workspaceRoot?: string | null) {
     this.workspaceRoot = workspaceRoot || null;
     this.textDocumentUri = params.textDocument.uri;
     this.position = params.position;
     this.logger = new Logger("HoverProvider");
-    this.documentationProvider = new DocumentationProvider();
+    // this.documentationProvider = new DocumentationProvider();
 
     this.logger.logRequest("HoverProvider initialized", {
       uri: this.textDocumentUri,
@@ -82,15 +82,16 @@ export class HoverProvider {
 
     // DOCUMENTATION
 
-    const tagIdentifier = identifier.identifyTagName(liquidNode);
-
-    if (tagIdentifier) {
-      const tagHoverContent =
-        this.documentationProvider.getTagHoverContent(tagIdentifier);
-      if (tagHoverContent) {
-        return tagHoverContent;
-      }
-    }
+    // #TODO: disabled temporarily. Either remove it or enable it
+    // const tagIdentifier = identifier.identifyTagName(liquidNode);
+    //
+    // if (tagIdentifier) {
+    //   const tagHoverContent =
+    //     this.documentationProvider.getTagHoverContent(tagIdentifier);
+    //   if (tagHoverContent) {
+    //     return tagHoverContent;
+    //   }
+    // }
 
     // No hover information available
     this.logger.debug("No hover information available");
