@@ -13,7 +13,6 @@ import {
 } from "vscode-languageserver/node";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { URI } from "vscode-uri";
 import { Logger } from "./logger";
 import { HoverProvider } from "./lspCapabilities/hoverProvider";
 import { DefinitionProvider } from "./lspCapabilities/definitionProvider";
@@ -23,6 +22,7 @@ interface LSSettings {
     enabled?: boolean;
   };
   logLevel?: string;
+  logFile?: string;
 }
 
 const DEFAULT_SETTINGS: LSSettings = {
@@ -59,30 +59,35 @@ export class LiquidLanguageServer {
         this.settings = { ...DEFAULT_SETTINGS, ...initOptions };
       }
 
+      // Configure logger
       const logLevel = this.settings.logLevel || DEFAULT_SETTINGS.logLevel!;
       Logger.configure({
         level: logLevel,
+        connection: this.connection,
+        logFile: this.settings.logFile,
       });
       this.logger.info(`Log level set to: ${logLevel}`);
 
       this.logger.info("Server initializing");
 
+      // Determine workspace root
+      // #NOTE: we may want to set workspaceRoot differently (validating folder structure)
+      if (params.workspaceFolders) {
+        this.workspaceRoot = params.workspaceFolders[0].uri;
+        this.logger.info(`Workspace root from folders: ${this.workspaceRoot}`);
+      }
+
       // Check client capabilities
       const capabilities = params.capabilities;
       this.hasConfigurationCapability = !!(
-        capabilities.workspace && !!capabilities.workspace.configuration
+        capabilities.workspace &&
+        !!capabilities.workspace.configuration &&
+        !!capabilities.workspace.didChangeConfiguration &&
+        !!capabilities.workspace.didChangeConfiguration.dynamicRegistration
       );
       this.hasWorkspaceFolderCapability = !!(
         capabilities.workspace && !!capabilities.workspace.workspaceFolders
       );
-
-      if (params.rootUri) {
-        this.workspaceRoot = URI.parse(params.rootUri).fsPath;
-        this.logger.info(`Workspace root: ${this.workspaceRoot}`);
-      } else if (params.rootPath) {
-        this.workspaceRoot = params.rootPath;
-        this.logger.info(`Workspace root (legacy): ${this.workspaceRoot}`);
-      }
 
       const result: InitializeResult = {
         capabilities: {
@@ -98,14 +103,22 @@ export class LiquidLanguageServer {
           }),
         },
       };
+      this.logger.debug(
+        `Client capabilities: ${JSON.stringify(result.capabilities)}`,
+      );
+
       return result;
     });
 
     this.connection.onInitialized(() => {
       this.logger.info("Server initialized");
 
+      // Only register for configuration changes if the client supports dynamic registration
+      // and we have configuration capability
       if (this.hasConfigurationCapability) {
-        // Register for all configuration changes
+        this.logger.debug(
+          "Client supports configuration capability - registering for changes",
+        );
         this.connection.client.register(
           DidChangeConfigurationNotification.type,
           undefined,
@@ -115,7 +128,6 @@ export class LiquidLanguageServer {
 
     this.connection.onDidChangeConfiguration((change) => {
       if (this.hasConfigurationCapability) {
-        // Reset all cached document settings
         this.logger.info("Configuration changed, updating settings");
       } else {
         this.settings = {
@@ -129,12 +141,10 @@ export class LiquidLanguageServer {
     });
 
     // this.connection.onDidChangeWatchedFiles((_change) => {
-    //   this.logger.logRequest("didChangeWatchedFiles");
     //   this.connection.console.log("File change event received");
     // });
     //
     // this.documents.onDidChangeContent((change) => {
-    //   this.logger.logRequest("didChangeContent");
     //   this.connection.console.log(`didChangeContent: ${change.document.uri}`);
     // });
 
@@ -144,10 +154,7 @@ export class LiquidLanguageServer {
         return null;
       }
 
-      this.logger.logRequest("onHover", params);
-      this.connection.console.log(
-        `Hover request for: ${params.textDocument.uri}`,
-      );
+      this.logger.debug(`Hover request for: ${params.textDocument.uri}`);
 
       const hoverProvider = new HoverProvider(params, this.workspaceRoot);
       const response = await hoverProvider.handleHoverRequest();
@@ -163,9 +170,7 @@ export class LiquidLanguageServer {
     });
 
     this.connection.onDefinition(async (params): Promise<Definition | null> => {
-      this.connection.console.log(
-        `Definition request for: ${params.textDocument.uri}`,
-      );
+      this.logger.debug(`Definition request for: ${params.textDocument.uri}`);
 
       const definitionProvider = new DefinitionProvider(
         params,

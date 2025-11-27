@@ -21,11 +21,7 @@ export class HoverProvider {
     this.logger = new Logger("HoverProvider");
     // this.documentationProvider = new DocumentationProvider();
 
-    this.logger.logRequest("HoverProvider initialized", {
-      uri: this.textDocumentUri,
-      position: this.position,
-    });
-    this.logger.debug(`Workspace root: ${this.workspaceRoot}`);
+    this.logger.info("HoverProvider initialized");
   }
 
   public async handleHoverRequest(): Promise<string | null> {

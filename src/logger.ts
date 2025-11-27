@@ -1,4 +1,5 @@
 import { Connection } from "vscode-languageserver/node";
+import * as fs from "fs";
 
 export enum LogLevel {
   DEBUG = 0,
@@ -11,12 +12,14 @@ export enum LogLevel {
 interface LoggerConfig {
   level?: LogLevel | string;
   connection?: Connection;
+  logFile?: string;
 }
 
 class LoggerInstance {
   private static instance: LoggerInstance;
   private logLevel: LogLevel = LogLevel.INFO;
   private connection?: Connection;
+  private logFile?: string;
 
   private constructor() {}
 
@@ -36,6 +39,9 @@ class LoggerInstance {
     }
     if (config.connection) {
       this.connection = config.connection;
+    }
+    if (config.logFile) {
+      this.logFile = config.logFile;
     }
   }
 
@@ -77,21 +83,36 @@ class LoggerInstance {
     const levelName = LogLevel[level];
     const formattedMessage = this.formatMessage(className, levelName, message);
 
-    // Send to client via LSP (works for VS Code, Neovim, Emacs, etc.)
     if (this.connection) {
-      switch (level) {
-        case LogLevel.ERROR:
-          this.connection.console.error(formattedMessage);
-          break;
-        case LogLevel.WARN:
-          this.connection.console.warn(formattedMessage);
-          break;
-        case LogLevel.INFO:
-          this.connection.console.info(formattedMessage);
-          break;
-        case LogLevel.DEBUG:
-          this.connection.console.log(formattedMessage);
-          break;
+      // Log to LSP connection
+      if (this.logLevel === LogLevel.DEBUG) {
+        this.connection.console.warn(formattedMessage);
+      } else {
+        switch (level) {
+          case LogLevel.ERROR:
+            this.connection.console.error(formattedMessage);
+            break;
+          case LogLevel.WARN:
+            this.connection.console.warn(formattedMessage);
+            break;
+          case LogLevel.INFO:
+            this.connection.console.info(formattedMessage);
+            break;
+          case LogLevel.DEBUG:
+            this.connection.console.warn(formattedMessage);
+            break;
+        }
+      }
+
+      // Log to file if configured
+      if (this.logFile) {
+        try {
+          fs.appendFileSync(this.logFile, formattedMessage + "\n");
+        } catch (error) {
+          this.connection.console.error(
+            `Failed to write to log file: ${error}`,
+          );
+        }
       }
     }
   }
@@ -131,23 +152,5 @@ export class Logger {
 
   public error(message: string): void {
     Logger.loggerInstance.log(this.className, LogLevel.ERROR, message);
-  }
-
-  public logRequest(method: string, params?: unknown): void {
-    if (params) {
-      const paramsStr = JSON.stringify(params, null, 2);
-      this.debug(`REQUEST: ${method} - Params: ${paramsStr}`);
-    } else {
-      this.debug(`REQUEST: ${method}`);
-    }
-  }
-
-  public logResponse(method: string, result?: unknown): void {
-    if (result) {
-      const resultStr = JSON.stringify(result, null, 2);
-      this.debug(`RESPONSE: ${method} - Result: ${resultStr}`);
-    } else {
-      this.debug(`RESPONSE: ${method}`);
-    }
   }
 }
