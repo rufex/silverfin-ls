@@ -1,0 +1,12 @@
+{% comment %} Text part with variable definitions {% endcomment %}
+
+{% assign text_part_var = "From Text Part" %}
+{% capture text_part_capture %}Text Part Capture{% endcapture %}
+
+{% assign numbers = "1,2,3" | split: "," %}
+{% for num in numbers %}
+  {{ num }}
+{% endfor %}
+
+{{ text_part_var }}
+{{ text_part_capture }}
