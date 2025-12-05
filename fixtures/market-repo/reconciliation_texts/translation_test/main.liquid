@@ -1,0 +1,13 @@
+{% comment %}Translation test - main template{% endcomment %}
+
+{% t= "key_from_main" default:"Main Translation" es:"Traducción Principal" %}
+
+{% include 'parts/translations_def' %}
+
+{% t "key_from_main" %}
+{% t "key_from_text_part" %}
+{% t "key_from_shared" %}
+{% t "undefined_key" %}
+{% t "key_defined_after" %}
+
+{% t= "key_defined_after" default:"Defined After Usage" %}
