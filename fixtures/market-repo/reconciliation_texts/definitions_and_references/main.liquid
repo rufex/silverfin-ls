@@ -13,7 +13,7 @@ Definitions:
 
 References:
 
-{% t "translation_key" %}
+{% t "translation_key" %}                                       // Positioned on `"translation_key"`, it should have one definition: `translation_key` (line 12)
 
 {% comment %} Case: assignnment {% endcomment %}
 
@@ -23,10 +23,10 @@ Definitions:
 
 References:
 
-{{ simple_var }}
-{% assign assigned_simple_var = simple_var %}
-{% capture captured_simple_var %}{{ simple_var }}{% endcapture %}
-{% t simple_var %}
+{{ simple_var }}                                                // Positioned on `simple_var`, it should have one definition: `simple_var` (line 22)
+{% assign assigned_simple_var = simple_var %}                   // Positioned on `simple_var`, it should have one definition: `simple_var` (line 22)
+{% capture captured_simple_var %}{{ simple_var }}{% endcapture %} // Positioned on `simple_var`, it should have one definition: `simple_var` (line 22)
+{% t simple_var %}                                              // Positioned on `simple_var`, it should have one definition: `simple_var` (line 22)
 
 {% comment %} Case: capture {% endcomment %}
 
@@ -36,10 +36,10 @@ Definitions:
 
 References:
 
-{{ captured_var }}
-{% assign assigned_captured_var = captured_var %}
-{% capture captured_captured_var %}{{ captured_var }}{% endcapture %}
-{% t captured_var %}
+{{ captured_var }}                                              // Positioned on `captured_var`, it should have one definition: `captured_var` (line  35)
+{% assign assigned_captured_var = captured_var %}               // Positioned on `captured_var`, it should have one definition: `captured_var` (line  35)
+{% capture captured_captured_var %}{{ captured_var }}{% endcapture %} // Positioned on `captured_var`, it should have one definition: `captured_var` (line  35)
+{% t captured_var %}                                            // Positioned on `captured_var`, it should have one definition: `captured_var` (line  35)
 
 {% comment %} Case: iterable variable {% endcomment %}
 
@@ -49,14 +49,14 @@ Definitions:
 
 References:
 
-{% for item in items %}                                  // Positioned on `items`, it should have one definition: `items` (line  48)
-  {{ item }}                                             // Positioned on `item`, it should have one definition: `item` (line 52)
-  {% assign item_var = item %}                           // Positioned on `item`, it should have one definition: `item` (line 52)
-  {% capture captured_item %}{{ item }}{% endcapture %}  // Positioned on `item`, it should have one definition: `item` (line 52)
-  {% t item %}                                           // Positioned on `item`, it should have one definition: `item` (line 52)
+{% for item in items %}                                         // Positioned on `items`, it should have one definition: `items` (line  48)
+  {{ item }}                                                    // Positioned on `item`, it should have one definition: `item` (line 52)
+  {% assign item_var = item %}                                  // Positioned on `item`, it should have one definition: `item` (line 52)
+  {% capture captured_item %}{{ item }}{% endcapture %}         // Positioned on `item`, it should have one definition: `item` (line 52)
+  {% t item %}                                                  // Positioned on `item`, it should have one definition: `item` (line 52)
 {% endfor %}
-{{ items }}                                              // Positioned on `items`, it should have one definition: `items` (line 48)
-{{ item }}                                               // Positioned on `item`, it should have no definitions (out of scope)
+{{ items }}                                                     // Positioned on `items`, it should have one definition: `items` (line 48)
+{{ item }}                                                      // Positioned on `item`, it should have no definitions (out of scope)
 
 {% comment %} Case: loop scope {% endcomment %}
 
@@ -69,12 +69,12 @@ Definitions:
 References:
 
 {% for item_1 in items_out_of_scope_2 %}
-    {{ item_1 }}                                          // Positioned on `item_1`, it should have one definition: `item_1` (line 71)
+    {{ item_1 }}                                                // Positioned on `item_1`, it should have one definition: `item_1` (line 71)
 {% endfor %}
 {% for item_1 in items_in_scope_2 %}
-    {{ item_1 }}                                          // Positioned on `item_1`, it should have one definition: `item_1` (line 74)
+    {{ item_1 }}                                                // Positioned on `item_1`, it should have one definition: `item_1` (line 74)
 {% endfor %}
-{{ item_1 }}                                              // Positioned on `item_1`, it should have one definition: `item_1` (line 65)
+{{ item_1 }}                                                    // Positioned on `item_1`, it should have one definition: `item_1` (line 65)
 
 {% comment %} Case: dynamic variables #TODO: not supported yet {% endcomment %}
 
@@ -90,20 +90,21 @@ Definitions:
 
 References:
 
-{{ [assigned_key_1] }} // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
-{{ [captured_key_1] }} // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
+{{ [assigned_key_1] }}                                          // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
+{{ [captured_key_1] }}                                          // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
 
-{% assign foo_1 = [assigned_key_1] %} // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
-{% assign foo_2 = [captured_key_1] %} // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
+{% assign foo_1 = [assigned_key_1] %}                           // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
+{% assign foo_2 = [captured_key_1] %}                           // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
 
-{% capture foo_3 %}{{ [assigned_key_1] }}{% endcomment %} // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
-{% capture foo_4 %}{{ [captured_key_1] }}{% endcomment %} // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
+{% capture foo_3 %}{{ [assigned_key_1] }}{% endcomment %}       // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
+{% capture foo_4 %}{{ [captured_key_1] }}{% endcomment %}       // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
 
-{% assign [assigned_key_1] = 'content' %} // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
-{% assign [captured_key_1] = 'content' %} // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
+{% assign [assigned_key_1] = 'content' %}                       // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
+{% assign [captured_key_1] = 'content' %}                       // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
 
-{% capture [assigned_key_2] %}content{% endcapture %} // Positioned on `[assigned_key_2]`, it should have one definition: `assigned_key_2` (line 70)
-{% capture [captured_key_2] %}content{% endcapture %} // Positioned on `[captured_key_2]`, it should have one definition: `captured_key_2` (line 72)
+{% capture [assigned_key_2] %}content{% endcapture %}           // Positioned on `[assigned_key_2]`, it should have one definition: `assigned_key_2` (line 70)
+{% capture [captured_key_2] %}content{% endcapture %}           // Positioned on `[captured_key_2]`, it should have one definition: `captured_key_2` (line 72)
 
-{{ [assigned_key_1] }} // Positioned on `[assigned_key_1]`, it should have two definitions: `assigned_key_1` (line 69) and `[assigned_key_1]` (line 85)
-{{ [captured_key_1] }} // Positioned on `[captured_key_1]`, it should have two definitions: `captured_key_1` (line 70) and `[captured_key_1]` (line 86)
+{{ [assigned_key_1] }}                                          // Positioned on `[assigned_key_1]`, it should have two definitions: `assigned_key_1` (line 69) and `[assigned_key_1]` (line 85)
+{{ [captured_key_1] }}                                          // Positioned on `[captured_key_1]`, it should have two definitions: `captured_key_1` (line 70) and `[captured_key_1]` (line 86)
+

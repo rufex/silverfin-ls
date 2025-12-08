@@ -330,4 +330,190 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(result![0].range.start.line).toBe(64);
     });
   });
+
+  describe("Case: dynamic variables", () => {
+    it("should find assigned key in output with dynamic access", async () => {
+      // Line 86: {% assign assigned_key_1 = 'item_assign_key' %}
+      // Line 93: {{ [assigned_key_1] }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 92, character: 7 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(85);
+    });
+
+    it("should find captured key in output with dynamic access", async () => {
+      // Line 88: {% capture captured_key_1 %}item_captured_key{% endcapture %}
+      // Line 94: {{ [captured_key_1] }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 93, character: 7 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(87);
+    });
+
+    it("should find assigned key in assignment value with dynamic access", async () => {
+      // Line 86: {% assign assigned_key_1 = 'item_assign_key' %}
+      // Line 96: {% assign foo_1 = [assigned_key_1] %}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 95, character: 23 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(85);
+    });
+
+    it("should find captured key in assignment value with dynamic access", async () => {
+      // Line 88: {% capture captured_key_1 %}item_captured_key{% endcapture %}
+      // Line 97: {% assign foo_2 = [captured_key_1] %}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 96, character: 23 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(87);
+    });
+
+    it("should find assigned key in assignment variable name with dynamic access", async () => {
+      // Line 86: {% assign assigned_key_1 = 'item_assign_key' %}
+      // Line 102: {% assign [assigned_key_1] = 'content' %}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 101, character: 13 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(85);
+    });
+
+    it("should find captured key in assignment variable name with dynamic access", async () => {
+      // Line 88: {% capture captured_key_1 %}item_captured_key{% endcapture %}
+      // Line 103: {% assign [captured_key_1] = 'content' %}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 102, character: 13 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(87);
+    });
+
+    it("should find assigned key_2 in capture variable name with dynamic access", async () => {
+      // Line 87: {% assign assigned_key_2 = 'item_assign_key' %}
+      // Line 105: {% capture [assigned_key_2] %}content{% endcapture %}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 104, character: 14 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(86);
+    });
+
+    it("should find captured key_2 in capture variable name with dynamic access", async () => {
+      // Line 89: {% capture captured_key_2 %}item_captured_key{% endcapture %}
+      // Line 106: {% capture [captured_key_2] %}content{% endcapture %}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 105, character: 14 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(88);
+    });
+
+    // TODO: These tests require tracking deferred variable definitions
+    // When {% assign [key] = value %} is used, it DEFINES a dynamic variable
+    // Later references to [key] should find both:
+    // 1. The key variable definition
+    // 2. The deferred variable definition
+    
+    it("should find two definitions for assigned key after dynamic assignment", async () => {
+      // Line 86: {% assign assigned_key_1 = 'item_assign_key' %}
+      // Line 102: {% assign [assigned_key_1] = 'content' %}
+      // Line 108: {{ [assigned_key_1] }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 107, character: 7 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(2);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![1].uri).toContain(mainFilePath);
+      // Should find both line 85 (key definition) and line 101 (deferred variable definition)
+      const lines = result!.map(r => r.range.start.line).sort((a, b) => a - b);
+      expect(lines).toEqual([85, 101]);
+    });
+
+    it("should find two definitions for captured key after dynamic capture", async () => {
+      // Line 88: {% capture captured_key_1 %}item_captured_key{% endcapture %}
+      // Line 103: {% assign [captured_key_1] = 'content' %}
+      // Line 109: {{ [captured_key_1] }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 108, character: 7 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(2);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![1].uri).toContain(mainFilePath);
+      // Should find both line 87 (key definition) and line 102 (deferred variable definition)
+      const lines = result!.map(r => r.range.start.line).sort((a, b) => a - b);
+      expect(lines).toEqual([87, 102]);
+    });
+  });
 });

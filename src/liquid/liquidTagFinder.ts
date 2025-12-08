@@ -238,47 +238,88 @@ export class LiquidTagFinder {
 
     // Define the different statement types and their field names
     const statementConfigs = [
-      { type: "assignment_statement", field: "variable_name" },
-      { type: "capture_statement", field: "variable" },
-      { type: "for_loop_statement", field: "item" },
+      {
+        type: "assignment_statement",
+        field: "variable_name",
+        supportsDeferred: true,
+      },
+      { type: "capture_statement", field: "variable", supportsDeferred: true },
+      { type: "for_loop_statement", field: "item", supportsDeferred: false },
     ];
 
     try {
       for (const config of statementConfigs) {
-        // Query for each statement type with its specific field
-        const queryString = `(${config.type}
+        // Query for identifiers directly in the field
+        const identifierQueryString = `(${config.type}
           ${config.field}: (identifier) @var_name
         )`;
 
-        const matches = this.parser.queryTree(queryString, tree);
+        const identifierMatches = this.parser.queryTree(
+          identifierQueryString,
+          tree,
+        );
+
+        let matches = identifierMatches;
+
+        // Only query for deferred variables if this field supports them
+        if (config.supportsDeferred) {
+          // Query for deferred variables in the field
+          // (deferred_variable key: (identifier))
+          const deferredQueryString = `(${config.type}
+            ${config.field}: (deferred_variable
+              key: (identifier) @var_name
+            )
+          )`;
+
+          const deferredMatches = this.parser.queryTree(
+            deferredQueryString,
+            tree,
+          );
+
+          // Combine both match sets
+          matches = [...identifierMatches, ...deferredMatches];
+        }
 
         for (const match of matches) {
           for (const capture of match.captures) {
             if (capture.name === "var_name") {
               const capturedName = capture.node.text;
               if (capturedName === variableName) {
-                let parent = capture.node.parent;
-                while (parent && parent.type !== config.type) {
-                  parent = parent.parent;
-                }
-                if (parent) {
-                  // Find the statement keyword node (assign, capture, for, etc.)
-                  // to get a better position instead of the statement start which may include whitespace
-                  let keywordNode: Parser.SyntaxNode | null = null;
-                  for (let i = 0; i < parent.childCount; i++) {
-                    const child = parent.child(i);
-                    if (
-                      child &&
-                      (child.type === "assign" ||
-                        child.type === "capture" ||
-                        child.type === "for")
-                    ) {
-                      keywordNode = child;
-                      break;
-                    }
+                // Check if this identifier is inside a deferred_variable
+                const immediateParent = capture.node.parent;
+                const isDeferredVariable =
+                  immediateParent &&
+                  immediateParent.type === "deferred_variable";
+
+                if (isDeferredVariable) {
+                  // For deferred variables, return the deferred_variable node itself
+                  // This gives us the position of [var] rather than just var
+                  matchingNodes.push(immediateParent);
+                } else {
+                  // For regular identifiers, find the parent statement
+                  let parent = capture.node.parent;
+                  while (parent && parent.type !== config.type) {
+                    parent = parent.parent;
                   }
-                  // Use the keyword node if found, otherwise use the parent
-                  matchingNodes.push(keywordNode || parent);
+                  if (parent) {
+                    // Find the statement keyword node (assign, capture, for, etc.)
+                    // to get a better position instead of the statement start which may include whitespace
+                    let keywordNode: Parser.SyntaxNode | null = null;
+                    for (let i = 0; i < parent.childCount; i++) {
+                      const child = parent.child(i);
+                      if (
+                        child &&
+                        (child.type === "assign" ||
+                          child.type === "capture" ||
+                          child.type === "for")
+                      ) {
+                        keywordNode = child;
+                        break;
+                      }
+                    }
+                    // Use the keyword node if found, otherwise use the parent
+                    matchingNodes.push(keywordNode || parent);
+                  }
                 }
               }
             }

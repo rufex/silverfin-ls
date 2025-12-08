@@ -295,6 +295,19 @@ export class LiquidTagIdentifier {
         // var -> key
         return fieldName === "key";
 
+      // case "access":
+      // {{ object[var] }}, {{ object.property }}
+      // The 'property' field is a variable reference (what's inside the brackets)
+      // The 'receiver' field can also be a variable reference
+      // var -> property or receiver
+      // return fieldName === "property" || fieldName === "receiver";
+
+      case "deferred_variable":
+        // {{ [var] }}, {% assign [var] = ... %}, {% assign foo = [var] %}
+        // The 'key' field contains the identifier we want to find the definition for
+        // var -> key
+        return fieldName === "key";
+
       default:
         // For other contexts, we might want to expand this in the future
         // For now, return false for unknown contexts
