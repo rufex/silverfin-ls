@@ -237,7 +237,18 @@ export class LiquidTagFinder {
                   parent = parent.parent;
                 }
                 if (parent) {
-                  matchingNodes.push(parent);
+                  // Find the statement keyword node (assign, capture, for, etc.)
+                  // to get a better position instead of the statement start which may include whitespace
+                  let keywordNode: Parser.SyntaxNode | null = null;
+                  for (let i = 0; i < parent.childCount; i++) {
+                    const child = parent.child(i);
+                    if (child && (child.type === "assign" || child.type === "capture" || child.type === "for")) {
+                      keywordNode = child;
+                      break;
+                    }
+                  }
+                  // Use the keyword node if found, otherwise use the parent
+                  matchingNodes.push(keywordNode || parent);
                 }
               }
             }

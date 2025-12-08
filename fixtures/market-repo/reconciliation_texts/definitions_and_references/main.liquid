@@ -1,0 +1,88 @@
+{% comment %}
+This file should contain most, if not all, variable definition scenarios.
+It includes simple assignments, captures, loop variables, and variables.
+It used also to test each case of variable usage to ensure "go to definition" works correctly.
+It al remains within this file as it is not the scope of this examples to show cases included text parts and shared parts.
+{% endcomment %}
+
+{% comment %} Case: Translation {% endcomment %}
+
+Definition:
+
+{% t= "translation_key" default: "Translated Text" %}
+
+References:
+
+{% t "translation_key" %}
+
+{% comment %} Case: assignnment {% endcomment %}
+
+Definition:
+
+{% assign simple_var = "Simple Value" %}
+
+References:
+
+{{ simple_var }}
+{% assign assigned_simple_var = simple_var %}
+{% capture captured_simple_var %}{{ simple_var }}{% endcapture %} # Not supported yet
+{% t simple_var %} # Not supported yet
+
+{% comment %} Case: capture {% endcomment %}
+
+Definition:
+
+{% capture captured_var %}Captured Content{% endcapture %}
+
+References:
+
+{{ captured_var }}
+{% assign assigned_captured_var = captured_var %}
+{% capture captured_captured_var %}{{ captured_var }}{% endcapture %} # Not supported yet
+{% t captured_var %} # Not supported yet
+
+{% comment %} Case: iterable variable {% endcomment %}
+
+Definition:
+
+{% assign items = "a|b|c" | split:"|" %}
+
+References:
+- Positioned on top of `items`
+
+{% for item in items %}
+  {{ item }}
+  {% assign item_var = item %}
+  {% capture captured_item %}{{ item }}{% endcapture %}
+{% endfor %}
+{{ items }}
+
+{% comment %} Case: dynamic variables {% endcomment %}
+{% comment %} #TODO: not supported yet. To be decided how it should behave {% endcomment %}
+
+Definition:
+
+{% assign assigned_key_1 = 'item_assign_key' %}
+{% assign assigned_key_2 = 'item_assign_key' %}
+{% capture captured_key_1 %}item_captured_key{% endcapture %}
+{% capture captured_key_2 %}item_captured_key{% endcapture %}
+
+References:
+
+{{ [assigned_key_1] }}
+{{ [captured_key_1] }}
+
+{% assign foo_1 = [assigned_key_1] %}
+{% assign foo_2 = [captured_key_1] %}
+
+{% capture foo_3 %}{{ [assigned_key_1] }}{% endcomment %}
+{% capture foo_4 %}{{ [captured_key_1] }}{% endcomment %}
+
+{% assign [assigned_key_1] = 'content' %}
+{% assign [captured_key_1] = 'content' %}
+
+{% capture [assigned_key_2] %}content{% endcapture %}
+{% capture [captured_key_2] %}content{% endcapture %}
+
+{{ [assigned_key_1] }}
+{{ [captured_key_1] }}

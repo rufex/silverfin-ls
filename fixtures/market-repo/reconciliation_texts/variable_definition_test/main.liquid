@@ -1,12 +1,12 @@
 {% comment %} Variable Definition Test - Go to Definition {% endcomment %}
 
-{% comment %} Test 1: Simple assign {% endcomment %}
+{% comment %} Simple assign {% endcomment %}
 {% assign simple_var = "Simple Value" %}
 
-{% comment %} Test 2: Capture statement {% endcomment %}
+{% comment %} Capture statement {% endcomment %}
 {% capture captured_var %}Captured Content{% endcapture %}
 
-{% comment %} Test 3: For loop iterator variable {% endcomment %}
+{% comment %} For loop iterator variable {% endcomment %}
 {% assign items = "a,b,c" | split: "," %}
 {% for loop_var in items %}
   {{ loop_var }}
@@ -14,7 +14,7 @@
   {% capture loop_var_captured %}{{ loop_var }}{% endcapture %}
 {% endfor %}
 
-{% comment %} Test 3b: For loop - navigate from items iterator to items definition {% endcomment %}
+{% comment %} Variable outside loop {% endcomment %}
 {{ items }}
 
 {% comment %} References to test - should find definitions above {% endcomment %}
@@ -25,22 +25,22 @@
 {% assign assigned_captured_var = captured_var %}
 {% capture captured_captured_var %}{{ captured_var }}{% endcapture %}
 
-{% comment %} Test 4: Variable from text part {% endcomment %}
+{% comment %} Variable from text part {% endcomment %}
 {% include 'parts/definitions' %}
 {{ text_part_var }}
 {% assign assigned_text_part_var = text_part_var %}
 {% capture captured_text_part_var %}{{ text_part_var }}{% endcapture %}
 
-{% comment %} Test 5: Variable from shared part {% endcomment %}
+{% comment %} Variable from shared part {% endcomment %}
 {% include 'shared/variable_shared' %}
 {{ shared_var }}
 {% assign assigned_shared_var = shared_var %}
 
-{% comment %} Test 6: Variable defined after usage - should NOT find {% endcomment %}
+{% comment %} Variable defined after usage - should NOT find {% endcomment %}
 {{ undefined_var }}
 {% assign undefined_var = "Defined After" %}
 
-{% comment %} Test 7: Multiple assignments of same variable {% endcomment %}
+{% comment %} Multiple assignments of same variable {% endcomment %}
 {% assign multi_var = "First Definition" %}
 {% assign multi_var = "Second Definition" %}
 {{ multi_var }}

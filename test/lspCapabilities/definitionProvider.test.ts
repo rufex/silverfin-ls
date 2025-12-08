@@ -381,7 +381,7 @@ describe("DefinitionProvider - Variables", () => {
       expect(result).not.toBeNull();
       expect(result!.length).toBeGreaterThan(0);
       expect(result![0].uri).toContain(mainFilePath);
-      expect(result![0].range.start.line).toBe(5);
+      expect(result![0].range.start.line).toBe(6);
     });
 
     it("should find variable definition from capture in assign value", async () => {
@@ -398,7 +398,7 @@ describe("DefinitionProvider - Variables", () => {
       expect(result).not.toBeNull();
       expect(result!.length).toBeGreaterThan(0);
       expect(result![0].uri).toContain(mainFilePath);
-      expect(result![0].range.start.line).toBe(5);
+      expect(result![0].range.start.line).toBe(6);
     });
 
     xit("should find variable in capture content", async () => {
