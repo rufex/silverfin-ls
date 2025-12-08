@@ -7,7 +7,7 @@ It al remains within this file as it is not the scope of this examples to show c
 
 {% comment %} Case: Translation {% endcomment %}
 
-Definition:
+Definitions:
 
 {% t= "translation_key" default: "Translated Text" %}
 
@@ -17,7 +17,7 @@ References:
 
 {% comment %} Case: assignnment {% endcomment %}
 
-Definition:
+Definitions:
 
 {% assign simple_var = "Simple Value" %}
 
@@ -30,7 +30,7 @@ References:
 
 {% comment %} Case: capture {% endcomment %}
 
-Definition:
+Definitions:
 
 {% capture captured_var %}Captured Content{% endcapture %}
 
@@ -43,7 +43,7 @@ References:
 
 {% comment %} Case: iterable variable {% endcomment %}
 
-Definition:
+Definitions:
 
 {% assign items = "a|b|c" | split:"|" %}
 
@@ -58,10 +58,27 @@ References:
 {{ items }}                                              // Positioned on `items`, it should have one definition: `items` (line 48)
 {{ item }}                                               // Positioned on `item`, it should have no definitions (out of scope)
 
-{% comment %} Case: dynamic variables {% endcomment %}
-{% comment %} #TODO: not supported yet. To be decided how it should behave {% endcomment %}
+{% comment %} Case: loop scope {% endcomment %}
 
-Definition:
+Definitions:
+
+{% assign item_1 = 'content' %}
+{% assign items_out_of_scope_2 = "x;y;z" | split:";" %}
+{% assign items_in_scope_2 = "a;b;c" | split:";" %}
+
+References:
+
+{% for item_1 in items_out_of_scope_2 %}
+    {{ item_1 }}                                          // Positioned on `item_1`, it should have one definition: `item_1` (line 71)
+{% endfor %}
+{% for item_1 in items_in_scope_2 %}
+    {{ item_1 }}                                          // Positioned on `item_1`, it should have one definition: `item_1` (line 74)
+{% endfor %}
+{{ item_1 }}                                              // Positioned on `item_1`, it should have one definition: `item_1` (line 65)
+
+{% comment %} Case: dynamic variables #TODO: not supported yet {% endcomment %}
+
+Definitions:
 
 {% assign item_assign_key = 'content' %}
 {% capture item_captured_key %}content{% endcapture %}

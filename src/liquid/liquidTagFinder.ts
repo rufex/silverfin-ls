@@ -182,10 +182,35 @@ export class LiquidTagFinder {
         );
 
         if (i === currentFileIndex) {
+          let hasLoopIteratorInScope = false;
+
           for (const node of nodesInRange) {
             if (node.startPosition.row < currentRow) {
-              matchingNodes.push({ node, templatePart: part });
+              // Check if this is a for loop iterator variable
+              if (this.isForLoopIterator(node)) {
+                const loopParent = this.findForLoopParent(node);
+                if (
+                  loopParent &&
+                  this.isPositionInLoopScope(currentRow, loopParent)
+                ) {
+                  matchingNodes.push({ node, templatePart: part });
+                  hasLoopIteratorInScope = true;
+                }
+              } else {
+                matchingNodes.push({ node, templatePart: part });
+              }
             }
+          }
+
+          // If we found a loop iterator in scope, remove non-loop definitions
+          // (loop variables shadow outer variables with the same name)
+          if (hasLoopIteratorInScope && matchingNodes.length > 1) {
+            // Keep only loop iterators that are in scope
+            const filteredNodes = matchingNodes.filter((nodeInTemplate) =>
+              this.isForLoopIterator(nodeInTemplate.node),
+            );
+            matchingNodes.length = 0;
+            matchingNodes.push(...filteredNodes);
           }
         } else {
           nodesInRange.forEach((node) =>
@@ -242,7 +267,12 @@ export class LiquidTagFinder {
                   let keywordNode: Parser.SyntaxNode | null = null;
                   for (let i = 0; i < parent.childCount; i++) {
                     const child = parent.child(i);
-                    if (child && (child.type === "assign" || child.type === "capture" || child.type === "for")) {
+                    if (
+                      child &&
+                      (child.type === "assign" ||
+                        child.type === "capture" ||
+                        child.type === "for")
+                    ) {
                       keywordNode = child;
                       break;
                     }
@@ -260,5 +290,48 @@ export class LiquidTagFinder {
     }
 
     return matchingNodes;
+  }
+
+  /**
+   * Checks if a node is a for loop iterator variable definition (the 'item' in 'for item in items')
+   */
+  private isForLoopIterator(node: Parser.SyntaxNode): boolean {
+    // Check if node's parent is a for_loop_statement
+    // by traversing up the tree
+    let current: Parser.SyntaxNode | null = node;
+    while (current) {
+      if (current.type === "for_loop_statement") {
+        return true;
+      }
+      current = current.parent;
+    }
+    return false;
+  }
+
+  /**
+   * Finds the for_loop_statement parent node for a given node
+   */
+  private findForLoopParent(node: Parser.SyntaxNode): Parser.SyntaxNode | null {
+    let current: Parser.SyntaxNode | null = node;
+    while (current) {
+      if (current.type === "for_loop_statement") {
+        return current;
+      }
+      current = current.parent;
+    }
+    return null;
+  }
+
+  /**
+   * Checks if a position is within the scope of a for loop
+   * (between the loop start and endfor)
+   */
+  private isPositionInLoopScope(
+    position: number,
+    loopNode: Parser.SyntaxNode,
+  ): boolean {
+    const loopStart = loopNode.startPosition.row;
+    const loopEnd = loopNode.endPosition.row;
+    return position >= loopStart && position <= loopEnd;
   }
 }

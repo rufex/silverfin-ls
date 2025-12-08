@@ -26,7 +26,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(11);
     });
@@ -45,7 +45,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(21);
     });
@@ -62,7 +62,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(21);
     });
@@ -79,7 +79,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(21);
     });
@@ -96,7 +96,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(21);
     });
@@ -115,7 +115,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(34);
     });
@@ -132,7 +132,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(34);
     });
@@ -149,7 +149,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(34);
     });
@@ -166,7 +166,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(34);
     });
@@ -185,7 +185,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(47);
     });
@@ -202,7 +202,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(51);
     });
@@ -219,7 +219,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(51);
     });
@@ -236,7 +236,7 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(51);
     });
@@ -253,12 +253,12 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBe(1);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(47);
     });
 
-    xit("should not find the iterator variable outside of the for loop statement", async () => {
+    it("should not find the iterator variable outside of the for loop statement", async () => {
       // Line 52: {% for item in items %}
       // Line 59: {{ item }}
       const params: DefinitionParams = {
@@ -270,6 +270,64 @@ describe("Go to Definition Cases - Definitions", () => {
       const result = await provider.handleDefinitionRequest();
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("Case: loop scope", () => {
+    it("should find loop iterator in first loop with shadowed variable", async () => {
+      // Line 65: {% assign item_1 = 'content' %}
+      // Line 71: {% for item_1 in items_out_of_scope_2 %}
+      // Line 72: {{ item_1 }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 71, character: 7 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(70);
+    });
+
+    it("should find loop iterator in second loop with same variable name", async () => {
+      // Line 65: {% assign item_1 = 'content' %}
+      // Line 71: {% for item_1 in items_out_of_scope_2 %}
+      // Line 74: {% for item_1 in items_in_scope_2 %}
+      // Line 75: {{ item_1 }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 74, character: 7 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(73);
+    });
+
+    it("should find original assignment when variable is used outside all loops", async () => {
+      // Line 65: {% assign item_1 = 'content' %}
+      // Line 71: {% for item_1 in items_out_of_scope_2 %}
+      // Line 74: {% for item_1 in items_in_scope_2 %}
+      // Line 77: {{ item_1 }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 76, character: 3 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(64);
     });
   });
 });
