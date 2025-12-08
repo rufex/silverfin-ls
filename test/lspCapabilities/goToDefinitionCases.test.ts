@@ -516,4 +516,274 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(lines).toEqual([87, 102]);
     });
   });
+
+  describe("Case: filters and variables", () => {
+    describe("Single filter argument", () => {
+      it("should find default_var in assignment with filter", async () => {
+        // Line 116: {% assign default_var = 'Content' %}
+        // Line 130: {% assign item_ref = another_ref_1_var | default:default_var %}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 129, character: 49 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(115);
+      });
+
+      it("should find dynamic variable [ref_var_key] in filter with two definitions", async () => {
+        // Line 117: {% assign ref_var_key = 'key' %}
+        // Line 118: {% assign [ref_var_key] = 'default value' %}
+        // Line 131: {% assign item_2_ref = another_ref_2_var | default:[ref_var_key] %}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 130, character: 52 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(2);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![1].uri).toContain(mainFilePath);
+        const lines = result!.map(r => r.range.start.line).sort((a, b) => a - b);
+        expect(lines).toEqual([116, 117]);
+      });
+
+      it("should find currency_var in output statement with filter", async () => {
+        // Line 119: {% assign currency_var = 2 %}
+        // Line 132: {{ 10 | currency:currency_var }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 131, character: 17 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(118);
+      });
+
+      it("should find currency_var in assignment with filter", async () => {
+        // Line 119: {% assign currency_var = 2 %}
+        // Line 133: {% assign item_3_ref = another_ref_3_var | currency:currency_var %}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 132, character: 52 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(118);
+      });
+
+      it("should find round_var in output statement with filter", async () => {
+        // Line 120: {% assign round_var = 1 %}
+        // Line 134: {{ 4.6 | round:round_var }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 133, character: 15 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(119);
+      });
+
+      it("should find date_format in output statement with filter", async () => {
+        // Line 121: {% assign date_format = "%Y-%m-%d" %}
+        // Line 135: {{ "01-01-2025" | date:date_format }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 134, character: 23 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(120);
+      });
+    });
+
+    describe("Multiple filter arguments", () => {
+      it("should find replace_from (first arg) in output with replace filter", async () => {
+        // Line 123: {% assign replace_from = 'old' %}
+        // Line 136: {{ "old text" | replace:replace_from,replace_to }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 135, character: 24 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(122);
+      });
+
+      it("should find replace_to (second arg) in output with replace filter", async () => {
+        // Line 124: {% assign replace_to = 'new' %}
+        // Line 136: {{ "old text" | replace:replace_from,replace_to }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 135, character: 37 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(123);
+      });
+
+      it("should find slice_start (first arg) in assignment with slice filter", async () => {
+        // Line 125: {% assign slice_start = 1 %}
+        // Line 138: {% assign sliced = "hello world" | slice:slice_start,slice_length %}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 137, character: 41 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(124);
+      });
+
+      it("should find slice_length (second arg) in assignment with slice filter", async () => {
+        // Line 126: {% assign slice_length = 3 %}
+        // Line 138: {% assign sliced = "hello world" | slice:slice_start,slice_length %}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 137, character: 53 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(125);
+      });
+    });
+
+    describe("Chained filters", () => {
+      it("should find split_delimiter in first filter of chain", async () => {
+        // Line 122: {% assign split_delimiter = '|' %}
+        // Line 140: {{ "a|b|c" | split:split_delimiter | join:", " }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 139, character: 19 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(121);
+      });
+
+      it("should find default_var in last filter of chain", async () => {
+        // Line 116: {% assign default_var = 'Content' %}
+        // Line 141: {% assign chained = "text" | upcase | append:default_var %}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 140, character: 45 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(115);
+      });
+    });
+
+    describe("Filters in output statements", () => {
+      it("should find default_var in output with default filter", async () => {
+        // Line 116: {% assign default_var = 'Content' %}
+        // Line 142: {{ some_value | default:default_var }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 141, character: 24 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(115);
+      });
+
+      it("should find round_var in output with round filter", async () => {
+        // Line 120: {% assign round_var = 1 %}
+        // Line 143: {{ 10.5 | round:round_var }}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 142, character: 16 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(119);
+      });
+    });
+
+    describe("Filters in capture blocks", () => {
+      it("should find default_var in capture block with filter", async () => {
+        // Line 116: {% assign default_var = 'Content' %}
+        // Line 144: {% capture filtered_content %}{{ undefined_value | default:default_var }}{% endcapture %}
+        const params: DefinitionParams = {
+          textDocument: { uri: URI.file(mainFilePath).toString() },
+          position: { line: 143, character: 59 },
+        };
+
+        const provider = new DefinitionProvider(params, fixturesPath);
+        const result = await provider.handleDefinitionRequest();
+
+        expect(result).not.toBeNull();
+        expect(result!.length).toBe(1);
+        expect(result![0].uri).toContain(mainFilePath);
+        expect(result![0].range.start.line).toBe(115);
+      });
+    });
+  });
 });

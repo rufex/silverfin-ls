@@ -108,3 +108,39 @@ References:
 {{ [assigned_key_1] }}                                          // Positioned on `[assigned_key_1]`, it should have two definitions: `assigned_key_1` (line 69) and `[assigned_key_1]` (line 85)
 {{ [captured_key_1] }}                                          // Positioned on `[captured_key_1]`, it should have two definitions: `captured_key_1` (line 70) and `[captured_key_1]` (line 86)
 
+
+{% comment %} Case: filters and variables {% endcomment %}
+
+Definitions:
+
+{% assign default_var = 'Content' %}
+{% assign ref_var_key = 'key' %}
+{% assign [ref_var_key] = 'default value' %}
+{% assign currency_var = 2 %}
+{% assign round_var = 1 %}
+{% assign date_format = "%Y-%m-%d" %}
+{% assign split_delimiter = '|' %}
+{% assign replace_from = 'old' %}
+{% assign replace_to = 'new' %}
+{% assign slice_start = 1 %}
+{% assign slice_length = 3 %}
+
+References:
+
+{% assign item_ref = another_ref_1_var | default:default_var %} // Positioned on `default_var`, should have one definition: `default_var` (line 116)
+{% assign item_2_ref = another_ref_2_var | default:[ref_var_key] %} // Positioned on `[ref_var_key]`, should have two definitions: `ref_var_key` (line 117) and `[ref_var_key]` (line 118)
+{{ 10 | currency:currency_var }}                                // Positioned on `currency_var`, should have one definition: `currency_var` (line 119)
+{% assign item_3_ref = another_ref_3_var | currency:currency_var %} // Positioned on `currency_var`, should have one definition: `currency_var` (line 119)
+{{ 4.6 | round:round_var }}                                     // Positioned on `round_var`, should have one definition: `round_var` (line 120)
+{{ "01-01-2025" | date:date_format }}                           // Positioned on `date_format`, should have one definition: `date_format` (line 121)
+{{ "old text" | replace:replace_from,replace_to }}              // Positioned on `replace_from`, should have one definition: `replace_from` (line 123)
+                                                                // Positioned on `replace_to`, should have one definition: `replace_to` (line 124)
+{% assign sliced = "hello world" | slice:slice_start,slice_length %} // Positioned on `slice_start`, should have one definition: `slice_start` (line 125)
+                                                                // Positioned on `slice_length`, should have one definition: `slice_length` (line 126)
+{{ "a|b|c" | split:split_delimiter | join:", " }}               // Positioned on `split_delimiter`, should have one definition: `split_delimiter` (line 122)
+{% assign chained = "text" | upcase | append:default_var %}     // Positioned on `default_var`, should have one definition: `default_var` (line 116)
+{{ some_value | default:default_var }}                          // Positioned on `default_var`, should have one definition: `default_var` (line 116)
+{{ 10.5 | round:round_var }}                                    // Positioned on `round_var`, should have one definition: `round_var` (line 120)
+{% capture filtered_content %}{{ undefined_value | default:default_var }}{% endcapture %} // Positioned on `default_var`, should have one definition: `default_var` (line 116)
+
+
