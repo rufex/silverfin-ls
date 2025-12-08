@@ -227,7 +227,9 @@ export class LiquidTagIdentifier {
     // Check if it's a variable reference based on parent type and field name
     switch (parent.type) {
       case "program":
+      case "block":
         // {{ var }} - direct identifier in program (output statement)
+        // Also handles identifiers in blocks (e.g., capture body, for loop body, etc.)
         return true;
 
       case "assignment_statement":
@@ -286,6 +288,12 @@ export class LiquidTagIdentifier {
         // Both 'left' and 'right' fields are variable references
         // var1 -> left, var2 -> right
         return fieldName === "left" || fieldName === "right";
+
+      case "translation_expression":
+        // {% t var %} - when key is an identifier (not a string)
+        // The 'key' field can be either a string literal or a variable reference
+        // var -> key
+        return fieldName === "key";
 
       default:
         // For other contexts, we might want to expand this in the future

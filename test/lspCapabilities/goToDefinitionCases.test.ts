@@ -67,7 +67,7 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(result![0].range.start.line).toBe(21);
     });
 
-    xit("should find simple_var definition in capture statement body", async () => {
+    it("should find simple_var definition in capture statement body", async () => {
       // Line 22: {% assign simple_var = "Simple Value" %}
       // Line 28: {% capture captured_simple_var %}{{ simple_var }}{% endcapture %}
       const params: DefinitionParams = {
@@ -78,11 +78,13 @@ describe("Go to Definition Cases - Definitions", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in capture content are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(21);
     });
 
-    xit("should find simple_var definition in translation expression", async () => {
+    it("should find simple_var definition in translation expression", async () => {
       // Line 22: {% assign simple_var = "Simple Value" %}
       // Line 29: {% t simple_var %}
       const params: DefinitionParams = {
@@ -93,8 +95,10 @@ describe("Go to Definition Cases - Definitions", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in translation tags are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(21);
     });
   });
 
@@ -133,7 +137,7 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(result![0].range.start.line).toBe(34);
     });
 
-    xit("should find captured_var definition in a capture statement body", async () => {
+    it("should find captured_var definition in a capture statement body", async () => {
       // Line 35: {% capture captured_var %}Captured Content{% endcapture %}
       // Line 41: {% capture captured_captured_var %}{{ captured_var }}{% endcapture %}
       const params: DefinitionParams = {
@@ -144,11 +148,13 @@ describe("Go to Definition Cases - Definitions", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in capture content are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(34);
     });
 
-    xit("should find captured_var definition in a translation expression", async () => {
+    it("should find captured_var definition in a translation expression", async () => {
       // Line 35: {% capture captured_var %}Captured Content{% endcapture %}
       // Line 42: {% t captured_var %}
       const params: DefinitionParams = {
@@ -159,18 +165,20 @@ describe("Go to Definition Cases - Definitions", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in translation tags are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(34);
     });
   });
 
   describe("Case: iterable variable", () => {
     it("should find items iterable in for loop statement", async () => {
       // Line 48: {% assign items = "a|b|c" | split:"|" %}
-      // Line 53: {% for item in items %}
+      // Line 52: {% for item in items %}
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
-        position: { line: 52, character: 17 },
+        position: { line: 51, character: 17 },
       };
 
       const provider = new DefinitionProvider(params, fixturesPath);
@@ -182,49 +190,55 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(result![0].range.start.line).toBe(47);
     });
 
-    xit("should find item iterator variable in output {{  }}", async () => {
-      // Line 53: {% for item in items %}
-      // Line 54: {{ item }}
+    it("should find item iterator variable in output {{  }}", async () => {
+      // Line 52: {% for item in items %}
+      // Line 53: {{ item }}
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
-        position: { line: 53, character: 7 },
+        position: { line: 52, character: 5 },
       };
 
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Loop variable definitions are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(51);
     });
 
-    xit("should find item iterator variable in an assignment statement", async () => {
-      // Line 53: {% for item in items %}
-      // Line 55: {% assign item_var = item %}
+    it("should find item iterator variable in an assignment statement", async () => {
+      // Line 52: {% for item in items %}
+      // Line 54: {% assign item_var = item %}
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
-        position: { line: 54, character: 26 },
+        position: { line: 53, character: 26 },
       };
 
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Loop variable definitions are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(51);
     });
 
-    xit("should find item iterator variable in a capture statement body", async () => {
-      // Line 53: {% for item in items %}
-      // Line 56: {% capture captured_item %}{{ item }}{% endcapture %}
+    it("should find item iterator variable in a capture statement body", async () => {
+      // Line 52: {% for item in items %}
+      // Line 55: {% capture captured_item %}{{ item }}{% endcapture %}
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
-        position: { line: 55, character: 37 },
+        position: { line: 54, character: 32 },
       };
 
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Loop variable definitions and variables in capture content are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(51);
     });
 
     it("should find the iterable variable outside of the for loop statement", async () => {
@@ -242,6 +256,20 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(result!.length).toBeGreaterThan(0);
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![0].range.start.line).toBe(47);
+    });
+
+    xit("should not find the iterator variable outside of the for loop statement", async () => {
+      // Line 52: {% for item in items %}
+      // Line 59: {{ item }}
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 58, character: 6 },
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).toBeNull();
     });
   });
 });

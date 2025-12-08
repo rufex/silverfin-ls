@@ -49,9 +49,13 @@ export class DefinitionProvider {
         return this.handleIncludeTag(liquidNode);
       }
 
-      // TRANSLATION TAG
+      // TRANSLATION TAG with string literal key
       if (liquidNode.type === "translation_expression") {
-        return this.handleTranslationTag(liquidNode);
+        const result = await this.handleTranslationTag(liquidNode);
+        if (result) {
+          return result;
+        }
+        // If no translation found, fall through to check for variable
       }
     }
 
