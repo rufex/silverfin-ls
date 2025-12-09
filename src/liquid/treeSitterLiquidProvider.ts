@@ -1,6 +1,10 @@
 import * as Parser from "tree-sitter";
 import * as LiquidTreeSitter from "tree-sitter-liquid";
 
+// Re-export commonly used tree-sitter types
+export type { SyntaxNode, Tree, Point, QueryMatch } from "tree-sitter";
+export type TreeSitterParser = Parser;
+
 export class TreeSitterLiquidProvider {
   private parser: Parser;
   private language: Parser.Language;

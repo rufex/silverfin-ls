@@ -1,21 +1,20 @@
-import * as Parser from "tree-sitter";
-import * as LiquidTreeSitter from "tree-sitter-liquid";
 import { Logger } from "../logger";
 import { IncludeTagInfo } from "../liquid/types";
+import {
+  TreeSitterLiquidProvider,
+  SyntaxNode,
+} from "./treeSitterLiquidProvider";
 
 export class IncludeParser {
-  private parser: Parser;
-  private language: Parser.Language;
+  private parser: TreeSitterLiquidProvider;
   private logger: Logger;
 
   constructor() {
     this.logger = new Logger("IncludeParser");
     try {
-      this.parser = new Parser();
-      this.language = LiquidTreeSitter as Parser.Language;
-      this.parser.setLanguage(this.language);
+      this.parser = new TreeSitterLiquidProvider();
     } catch (error) {
-      this.logger.error(`Failed to initialize TranslationParser: ${error}`);
+      this.logger.error(`Failed to initialize IncludeParser: ${error}`);
       throw error;
     }
   }
@@ -26,7 +25,7 @@ export class IncludeParser {
    * @returns Array of include tag information
    */
   public findAll(text: string): IncludeTagInfo[] {
-    const tree = this.parser.parse(text);
+    const tree = this.parser.parseTree(text);
     if (!tree) {
       return [];
     }
@@ -37,8 +36,7 @@ export class IncludeParser {
       (include_statement) @include_statement
     `;
 
-    const query = new Parser.Query(this.language, queryString);
-    const matches = query.matches(tree.rootNode);
+    const matches = this.parser.queryTree(queryString, tree);
 
     for (const match of matches) {
       for (const capture of match.captures) {
@@ -60,9 +58,7 @@ export class IncludeParser {
    * @param includeNode The include_statement syntax node
    * @returns IncludeTagInfo object or null if not a valid include node
    */
-  public identifyIncludeTag(
-    includeNode: Parser.SyntaxNode,
-  ): IncludeTagInfo | null {
+  public identifyIncludeTag(includeNode: SyntaxNode): IncludeTagInfo | null {
     if (includeNode.type !== "include_statement") {
       return null;
     }
@@ -110,7 +106,7 @@ export class IncludeParser {
    * @param stringNode The string node containing the include path
    * @returns The include path without quotes
    */
-  private extractIncludePath(stringNode: Parser.SyntaxNode): string {
+  private extractIncludePath(stringNode: SyntaxNode): string {
     const text = stringNode.text;
     // Remove quotes from the string
     return text.replace(/^['"]|['"]$/g, "");

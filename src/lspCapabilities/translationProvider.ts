@@ -1,5 +1,5 @@
-import * as Parser from "tree-sitter";
 import { Logger } from "../logger";
+import { SyntaxNode } from "../liquid/treeSitterLiquidProvider";
 
 export class TranslationProvider {
   private logger: Logger;
@@ -27,7 +27,7 @@ export class TranslationProvider {
    * nl: Tekst
    * fr: Texte
    */
-  public extractInfo(node: Parser.SyntaxNode): string {
+  public extractInfo(node: SyntaxNode): string {
     if (node.type !== "translation_statement") {
       return "";
     }
@@ -76,7 +76,7 @@ export class TranslationProvider {
     return result.join("  \n");
   }
 
-  private extractTranslationKey(stringNode: Parser.SyntaxNode): string {
+  private extractTranslationKey(stringNode: SyntaxNode): string {
     const text = stringNode.text;
     return text.replace(/^['"]|['"]$/g, "");
   }

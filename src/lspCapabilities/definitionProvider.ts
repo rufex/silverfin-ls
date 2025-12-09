@@ -7,7 +7,7 @@ import * as fs from "fs";
 import { IncludeParser } from "../liquid/includeParser";
 import { parseTemplateUri } from "../utils/templateUriParser";
 import { TemplateDirectories } from "../templates/types";
-import * as Parser from "tree-sitter";
+import { SyntaxNode } from "../liquid/treeSitterLiquidProvider";
 
 export class DefinitionProvider {
   private workspaceRoot: string | null;
@@ -82,7 +82,7 @@ export class DefinitionProvider {
    * @param liquidNode The syntax node representing the include tag.
    * @returns An array of Locations pointing to the definition, or null if not found.
    */
-  private handleIncludeTag(liquidNode: Parser.SyntaxNode): Location[] | null {
+  private handleIncludeTag(liquidNode: SyntaxNode): Location[] | null {
     const includeParser = new IncludeParser();
     const includeTag = includeParser.identifyIncludeTag(liquidNode);
     const templateInfo = parseTemplateUri(this.textDocumentUri);
@@ -114,7 +114,7 @@ export class DefinitionProvider {
   }
 
   private async handleTranslationTag(
-    liquidNode: Parser.SyntaxNode,
+    liquidNode: SyntaxNode,
   ): Promise<Location[] | null> {
     const searchFor = "translation_statement";
     const identifier = new LiquidTagIdentifier();
@@ -160,7 +160,7 @@ export class DefinitionProvider {
   }
 
   private async handleVariable(
-    liquidNode: Parser.SyntaxNode,
+    liquidNode: SyntaxNode,
   ): Promise<Location[] | null> {
     const variableName = liquidNode.text;
     this.logger.debug(`Looking for variable definitions: ${variableName}`);

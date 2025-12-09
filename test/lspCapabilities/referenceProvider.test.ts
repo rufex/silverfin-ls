@@ -46,8 +46,8 @@ describe("ReferenceProvider - Variables", () => {
       expect(result).not.toBeNull();
       expect(result!.length).toBe(3); // Exactly 3 references
 
-      // Verify all expected references
-      const refLines = result!.map((loc) => loc.range.start.line).sort();
+      // Verify references are returned in correct order (by position in file)
+      const refLines = result!.map((loc) => loc.range.start.line);
       expect(refLines).toEqual([20, 21, 22]); // Lines 21, 22, 23 (0-indexed)
 
       // Should NOT include definition when includeDeclaration is false
@@ -71,14 +71,8 @@ describe("ReferenceProvider - Variables", () => {
 
       expect(result).not.toBeNull();
 
-      // Debug output
-      const allLines = result!
-        .map((loc) => loc.range.start.line)
-        .sort((a, b) => a - b); // Numeric sort
-      if (result!.length !== 4) {
-        console.log("Expected 4 results, got:", result!.length);
-        console.log("Lines found:", allLines);
-      }
+      // Verify definition and references are returned in correct order
+      const allLines = result!.map((loc) => loc.range.start.line);
 
       expect(result!.length).toBe(4); // 3 references + 1 definition
       expect(allLines).toEqual([3, 20, 21, 22]); // Definition + references
@@ -101,7 +95,8 @@ describe("ReferenceProvider - Variables", () => {
       expect(result).not.toBeNull();
       expect(result!.length).toBe(3); // Exactly 3 references
 
-      const refLines = result!.map((loc) => loc.range.start.line).sort();
+      // Verify references are returned in correct order
+      const refLines = result!.map((loc) => loc.range.start.line);
       expect(refLines).toEqual([20, 21, 22]);
     });
 
@@ -122,7 +117,8 @@ describe("ReferenceProvider - Variables", () => {
       expect(result).not.toBeNull();
       expect(result!.length).toBe(3); // Exactly 3 references
 
-      const refLines = result!.map((loc) => loc.range.start.line).sort();
+      // Verify references are returned in correct order
+      const refLines = result!.map((loc) => loc.range.start.line);
       expect(refLines).toEqual([23, 24, 25]); // Lines 24, 25, 26 (0-indexed)
     });
 
@@ -142,7 +138,8 @@ describe("ReferenceProvider - Variables", () => {
       expect(result).not.toBeNull();
       expect(result!.length).toBe(2); // Exactly 2 references
 
-      const refLines = result!.map((loc) => loc.range.start.line).sort();
+      // Verify references are returned in correct order
+      const refLines = result!.map((loc) => loc.range.start.line);
       expect(refLines).toEqual([10, 17]); // Lines 11 and 18 (0-indexed)
     });
   });

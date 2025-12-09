@@ -4,7 +4,10 @@ import { LiquidTagIdentifier } from "../liquid/liquidTagIdentifier";
 import { LiquidTagFinder, NodeInTemplate } from "../liquid/liquidTagFinder";
 import { URI } from "vscode-uri";
 import * as fs from "fs";
-import * as Parser from "tree-sitter";
+import { SyntaxNode } from "../liquid/treeSitterLiquidProvider";
+
+// Constants
+const ALL_LINES = Number.MAX_SAFE_INTEGER; // Search entire file without line limit
 
 export class ReferenceProvider {
   private workspaceRoot: string | null;
@@ -78,7 +81,7 @@ export class ReferenceProvider {
   }
 
   private async handleVariableReferences(
-    variableNode: Parser.SyntaxNode,
+    variableNode: SyntaxNode,
   ): Promise<Location[] | null> {
     const variableName = variableNode.text;
     this.logger.debug(`Looking for variable references: ${variableName}`);
@@ -109,7 +112,7 @@ export class ReferenceProvider {
     if (this.context.includeDeclaration !== false) {
       const definitions = await finder.findAllVariableDefinitionsBeforePosition(
         this.textDocumentUri,
-        Number.MAX_SAFE_INTEGER,
+        ALL_LINES, // Search entire file for definitions
         variableName,
         this.workspaceRoot,
       );
@@ -132,7 +135,7 @@ export class ReferenceProvider {
   }
 
   private async handleTranslationReferences(
-    liquidNode: Parser.SyntaxNode,
+    liquidNode: SyntaxNode,
   ): Promise<Location[] | null> {
     const identifier = new LiquidTagIdentifier();
     const nodeKey = identifier.identifyNodeKey(liquidNode);
@@ -163,7 +166,7 @@ export class ReferenceProvider {
     if (this.context.includeDeclaration !== false) {
       const definitions = await finder.findAllNodesBeforePosition(
         this.textDocumentUri,
-        Number.MAX_SAFE_INTEGER,
+        ALL_LINES, // Search entire file for definitions
         nodeKey,
         ["translation_statement"],
         this.workspaceRoot,
@@ -207,31 +210,26 @@ export class ReferenceProvider {
 
   /**
    * Add locations from newLocations to locations array, avoiding duplicates.
+   * Uses Set for O(1) lookup instead of O(n) for better performance.
    */
   private addUniqueLocations(
     locations: Location[],
     newLocations: Location[],
   ): void {
+    const existing = new Set(
+      locations.map(
+        (loc) =>
+          `${loc.uri}:${loc.range.start.line}:${loc.range.start.character}`,
+      ),
+    );
+
     for (const newLoc of newLocations) {
-      if (!this.isDuplicateLocation(locations, newLoc)) {
+      const key = `${newLoc.uri}:${newLoc.range.start.line}:${newLoc.range.start.character}`;
+      if (!existing.has(key)) {
         locations.push(newLoc);
+        existing.add(key);
       }
     }
-  }
-
-  /**
-   * Check if a location already exists in the locations array.
-   */
-  private isDuplicateLocation(
-    locations: Location[],
-    newLoc: Location,
-  ): boolean {
-    return locations.some(
-      (loc) =>
-        loc.uri === newLoc.uri &&
-        loc.range.start.line === newLoc.range.start.line &&
-        loc.range.start.character === newLoc.range.start.character,
-    );
   }
 
   /**
@@ -242,7 +240,7 @@ export class ReferenceProvider {
     return locations.sort((a, b) => {
       // First sort by URI (file path)
       if (a.uri !== b.uri) {
-        return a.uri.localeCompare(b.uri);
+        return a.uri < b.uri ? -1 : 1;
       }
       // Then by line number within the same file
       if (a.range.start.line !== b.range.start.line) {
