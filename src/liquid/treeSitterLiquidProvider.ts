@@ -5,6 +5,12 @@ import * as LiquidTreeSitter from "tree-sitter-liquid";
 export type { SyntaxNode, Tree, Point, QueryMatch } from "tree-sitter";
 export type TreeSitterParser = Parser;
 
+/**
+ * Provides tree-sitter parsing for Liquid templates.
+ * 
+ * Note: This class CANNOT be a singleton. Tree-sitter Parser instances are not thread-safe
+ * and cannot be used concurrently. Each class that needs parsing should create its own instance.
+ */
 export class TreeSitterLiquidProvider {
   private parser: Parser;
   private language: Parser.Language;

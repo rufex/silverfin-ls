@@ -20,6 +20,7 @@ import { Logger } from "./logger";
 import { HoverProvider } from "./lspCapabilities/hoverProvider";
 import { DefinitionProvider } from "./lspCapabilities/definitionProvider";
 import { ReferenceProvider } from "./lspCapabilities/referenceProvider";
+import { TemplatePartsCollectionManager } from "./templates/templatePartsCollectionManager";
 
 interface LSSettings {
   hover?: {
@@ -95,7 +96,13 @@ export class LiquidLanguageServer {
 
       const result: InitializeResult = {
         capabilities: {
-          textDocumentSync: TextDocumentSyncKind.Full,
+          textDocumentSync: {
+            openClose: true,
+            change: TextDocumentSyncKind.Full,
+            save: {
+              includeText: false,
+            },
+          },
           hoverProvider: true,
           definitionProvider: true,
           referencesProvider: true,
@@ -212,6 +219,20 @@ export class LiquidLanguageServer {
         }
       },
     );
+
+    // Regenerate template maps when liquid files are saved
+    this.documents.onDidSave(async (change) => {
+      const uri = change.document.uri;
+      if (uri.endsWith(".liquid") && this.workspaceRoot) {
+        this.logger.debug(`Liquid file saved, regenerating template map: ${uri}`);
+        try {
+          const manager = TemplatePartsCollectionManager.getInstance(this.workspaceRoot);
+          await manager.regenerateFromUri(uri);
+        } catch (error) {
+          this.logger.error(`Failed to regenerate template map: ${error}`);
+        }
+      }
+    });
 
     this.documents.listen(this.connection);
   }

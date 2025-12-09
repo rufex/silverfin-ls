@@ -15,6 +15,12 @@ import {
  * Provides methods to load, refresh, and retrieve template parts with caching.
  * Each template is identified by a unique key in the format "templateType/templateName".
  *
+ * Caching Strategy:
+ * - Template maps are loaded once and cached in memory for the server lifetime
+ * - Cache is shared across all LSP requests (definition, reference, hover)
+ * - Cache is automatically regenerated when .liquid files are saved (via LSP onDidSave)
+ * - This ensures fast subsequent requests while keeping data fresh
+ *
  * @example
  * const manager = TemplatePartsCollectionManager.getInstance(workspaceRoot);
  * const parts = await manager.getMap('reconciliationText', 'my_template');
@@ -172,6 +178,43 @@ export class TemplatePartsCollectionManager {
       currentLine,
     );
     return { templateParts: parts, currentFileIndex: index };
+  }
+
+  /**
+   * Regenerates template maps when a liquid file is saved.
+   * Determines which templates are affected by the saved file and reloads them.
+   * @param textDocumentUri The URI of the saved file
+   */
+  public async regenerateFromUri(textDocumentUri: string): Promise<void> {
+    const templateUriInfo = parseTemplateUri(textDocumentUri);
+    if (!templateUriInfo) {
+      this.logger.debug(
+        `Could not parse template URI for regeneration: ${textDocumentUri}`,
+      );
+      return;
+    }
+
+    // For shared parts, reload all cached templates (they all might use it)
+    if (templateUriInfo.templateType === "sharedPart") {
+      this.logger.info(
+        `Shared part saved, regenerating all cached templates: ${textDocumentUri}`,
+      );
+      const cachedKeys = Array.from(this.loadedMaps.keys());
+      for (const key of cachedKeys) {
+        const [type, name] = key.split("/") as [TemplateTypes, string];
+        await this.loadMap(type, name);
+      }
+      return;
+    }
+
+    // For template files, reload just that template
+    this.logger.info(
+      `Template file saved, regenerating: ${templateUriInfo.templateType}/${templateUriInfo.templateName}`,
+    );
+    await this.loadMap(
+      templateUriInfo.templateType,
+      templateUriInfo.templateName,
+    );
   }
 
   /**
