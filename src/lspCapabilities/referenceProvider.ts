@@ -9,6 +9,11 @@ import { SyntaxNode } from "../liquid/treeSitterLiquidProvider";
 // Constants
 const ALL_LINES = Number.MAX_SAFE_INTEGER; // Search entire file without line limit
 
+// Extended Location with execution order information
+interface LocationWithOrder extends Location {
+  executionIndex: number;
+}
+
 export class ReferenceProvider {
   private workspaceRoot: string | null;
   private textDocumentUri: ReferenceParams["textDocument"]["uri"];
@@ -103,8 +108,8 @@ export class ReferenceProvider {
       return null;
     }
 
-    const locations: Location[] = nodes.map((node) =>
-      this.nodeToLocation(node),
+    const locations: LocationWithOrder[] = nodes.map((node) =>
+      this.nodeToLocationWithOrder(node),
     );
 
     // Always include definitions (LSP standard behavior)
@@ -120,12 +125,12 @@ export class ReferenceProvider {
       if (definitions && definitions.length > 0) {
         this.addUniqueLocations(
           locations,
-          definitions.map((node) => this.nodeToLocation(node)),
+          definitions.map((node) => this.nodeToLocationWithOrder(node)),
         );
       }
     }
 
-    // Sort locations by file and line number for consistent ordering
+    // Sort locations by template execution order
     const sortedLocations = this.sortLocationsByTemplateOrder(locations);
 
     this.logger.debug(
@@ -157,8 +162,8 @@ export class ReferenceProvider {
       return null;
     }
 
-    const locations: Location[] = nodes.map((node) =>
-      this.nodeToLocation(node),
+    const locations: LocationWithOrder[] = nodes.map((node) =>
+      this.nodeToLocationWithOrder(node),
     );
 
     // Always include definitions (LSP standard behavior)
@@ -175,12 +180,12 @@ export class ReferenceProvider {
       if (definitions && definitions.length > 0) {
         this.addUniqueLocations(
           locations,
-          definitions.map((node) => this.nodeToLocation(node)),
+          definitions.map((node) => this.nodeToLocationWithOrder(node)),
         );
       }
     }
 
-    // Sort locations by file and line number for consistent ordering
+    // Sort locations by template execution order
     const sortedLocations = this.sortLocationsByTemplateOrder(locations);
 
     this.logger.debug(
@@ -190,9 +195,11 @@ export class ReferenceProvider {
   }
 
   /**
-   * Convert a NodeInTemplate to a Location object.
+   * Convert a NodeInTemplate to a Location object with execution order.
    */
-  private nodeToLocation(nodeInTemplate: NodeInTemplate): Location {
+  private nodeToLocationWithOrder(
+    nodeInTemplate: NodeInTemplate,
+  ): LocationWithOrder {
     return {
       uri: URI.file(nodeInTemplate.templatePart.fileFullPath).toString(),
       range: {
@@ -205,6 +212,7 @@ export class ReferenceProvider {
           character: nodeInTemplate.node.endPosition.column,
         },
       },
+      executionIndex: nodeInTemplate.executionIndex,
     };
   }
 
@@ -213,8 +221,8 @@ export class ReferenceProvider {
    * Uses Set for O(1) lookup instead of O(n) for better performance.
    */
   private addUniqueLocations(
-    locations: Location[],
-    newLocations: Location[],
+    locations: LocationWithOrder[],
+    newLocations: LocationWithOrder[],
   ): void {
     const existing = new Set(
       locations.map(
@@ -233,19 +241,23 @@ export class ReferenceProvider {
   }
 
   /**
-   * Sort locations by URI (file) and then by line number within each file.
-   * This orders results by template execution order.
+   * Sort locations by template execution order.
+   * Uses the executionIndex from NodeInTemplate to maintain proper order.
    */
-  private sortLocationsByTemplateOrder(locations: Location[]): Location[] {
+  private sortLocationsByTemplateOrder(
+    locations: LocationWithOrder[],
+  ): Location[] {
     return locations.sort((a, b) => {
-      // First sort by URI (file path)
-      if (a.uri !== b.uri) {
-        return a.uri < b.uri ? -1 : 1;
+      // First sort by execution index (template part order)
+      if (a.executionIndex !== b.executionIndex) {
+        return a.executionIndex - b.executionIndex;
       }
-      // Then by line number within the same file
+
+      // Within the same part, sort by line number
       if (a.range.start.line !== b.range.start.line) {
         return a.range.start.line - b.range.start.line;
       }
+
       // Finally by character position
       return a.range.start.character - b.range.start.character;
     });

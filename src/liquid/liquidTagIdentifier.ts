@@ -102,9 +102,7 @@ export class LiquidTagIdentifier {
     return this.extractTagNameFromNode(liquidNode);
   }
 
-  private extractTagNameFromNode(
-    liquidNode: SyntaxNode,
-  ): LiquidTagName | null {
+  private extractTagNameFromNode(liquidNode: SyntaxNode): LiquidTagName | null {
     if (
       liquidNode.type in LiquidNodeTagNames &&
       this.isTagNameType(liquidNode.type)

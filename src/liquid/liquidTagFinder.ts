@@ -1,12 +1,16 @@
 import { Logger } from "../logger";
-import { TreeSitterLiquidProvider, SyntaxNode } from "./treeSitterLiquidProvider";
+import {
+  TreeSitterLiquidProvider,
+  SyntaxNode,
+} from "./treeSitterLiquidProvider";
 import * as fs from "fs";
 import { TemplatePartsCollectionManager } from "../templates/templatePartsCollectionManager";
 import { TemplatePart } from "../templates/types";
 
 export interface NodeInTemplate {
   node: SyntaxNode;
-  templatePart: { fileFullPath: string };
+  templatePart: TemplatePart;
+  executionIndex: number; // Position in template execution order
 }
 
 interface TemplateMapDetails {
@@ -118,12 +122,16 @@ export class LiquidTagFinder {
         if (i === currentFileIndex) {
           for (const node of nodesInRange) {
             if (node.startPosition.row < currentRow) {
-              matchingNodes.push({ node, templatePart: part });
+              matchingNodes.push({
+                node,
+                templatePart: part,
+                executionIndex: i,
+              });
             }
           }
         } else {
           nodesInRange.forEach((node) =>
-            matchingNodes.push({ node, templatePart: part }),
+            matchingNodes.push({ node, templatePart: part, executionIndex: i }),
           );
         }
       }
@@ -234,11 +242,11 @@ export class LiquidTagFinder {
             currentRow,
           );
           filteredNodes.forEach((node) =>
-            matchingNodes.push({ node, templatePart: part }),
+            matchingNodes.push({ node, templatePart: part, executionIndex: i }),
           );
         } else {
           nodesInRange.forEach((node) =>
-            matchingNodes.push({ node, templatePart: part }),
+            matchingNodes.push({ node, templatePart: part, executionIndex: i }),
           );
         }
       }
@@ -493,6 +501,7 @@ export class LiquidTagFinder {
         return this.findLoopScopedReferences(
           currentFileContent,
           currentFilePart,
+          currentFileIndex,
           currentLoopContext,
           variableName,
         );
@@ -501,9 +510,7 @@ export class LiquidTagFinder {
       // Otherwise, find all references across template, excluding shadowed loop variables
       return this.findGlobalScopedReferences(templateParts, variableName);
     } catch (error) {
-      this.logger.error(
-        `findAllVariableReferencesInScope failed: ${error}`,
-      );
+      this.logger.error(`findAllVariableReferencesInScope failed: ${error}`);
       return null;
     }
   }
@@ -514,6 +521,7 @@ export class LiquidTagFinder {
   private findLoopScopedReferences(
     fileContent: string,
     templatePart: TemplatePart,
+    executionIndex: number,
     loopNode: SyntaxNode,
     variableName: string,
   ): NodeInTemplate[] {
@@ -525,7 +533,7 @@ export class LiquidTagFinder {
 
     for (const node of loopReferences) {
       if (this.isPositionInLoopScope(node.startPosition.row, loopNode)) {
-        matchingNodes.push({ node, templatePart });
+        matchingNodes.push({ node, templatePart, executionIndex });
       }
     }
 
@@ -545,7 +553,8 @@ export class LiquidTagFinder {
   ): NodeInTemplate[] {
     const matchingNodes: NodeInTemplate[] = [];
 
-    for (const part of templateParts) {
+    for (let i = 0; i < templateParts.length; i++) {
+      const part = templateParts[i];
       const fileContent = this.readFileContent(part.fileFullPath);
       if (!fileContent) continue;
 
@@ -565,7 +574,7 @@ export class LiquidTagFinder {
 
         // Only include if not in a shadowing loop
         if (!loopContext) {
-          matchingNodes.push({ node, templatePart: part });
+          matchingNodes.push({ node, templatePart: part, executionIndex: i });
         }
       }
     }
@@ -736,7 +745,8 @@ export class LiquidTagFinder {
       const searchFor = "translation_expression";
 
       // Search ALL template parts for translation references
-      for (const part of templateParts) {
+      for (let i = 0; i < templateParts.length; i++) {
+        const part = templateParts[i];
         const fileContent = this.readFileContent(part.fileFullPath);
         if (!fileContent) continue;
 
@@ -746,7 +756,7 @@ export class LiquidTagFinder {
         const nodesInRange = this.filterNodesInRange(nodes, part);
 
         nodesInRange.forEach((node) =>
-          matchingNodes.push({ node, templatePart: part }),
+          matchingNodes.push({ node, templatePart: part, executionIndex: i }),
         );
       }
 

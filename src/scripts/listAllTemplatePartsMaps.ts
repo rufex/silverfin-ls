@@ -64,9 +64,7 @@ function parseArguments(): {
   process.exit(1);
 }
 
-async function getAllTemplates(
-  rootPath: string,
-): Promise<TemplateInfo[]> {
+async function getAllTemplates(rootPath: string): Promise<TemplateInfo[]> {
   const templates: TemplateInfo[] = [];
 
   const templateTypes = [

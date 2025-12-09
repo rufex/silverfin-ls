@@ -9,6 +9,7 @@ This directory contains debug scripts for analyzing and understanding the intern
 **Purpose:** Lists the template parts map for templates. Can analyze all templates in a directory, or a specific template.
 
 **What it shows:**
+
 - The exact order in which template parts are executed
 - How template are structured in multiple parts when they contain includes
 - Line ranges for each part
@@ -30,6 +31,7 @@ node out/scripts/listAllTemplatePartsMaps.js /path/to/templates/root
 # Analyze a specific template
 node out/scripts/listAllTemplatePartsMaps.js /path/to/template/main.liquid
 ```
+
 --- definitions_and_references ---
 
 Path: reconciliation_texts/definitions_and_references/main.liquid
@@ -37,8 +39,10 @@ Total parts: 1
 Current part index when opening main.liquid: 0
 
 Parts order:
-  Idx | File                          | Type         | Lines     | Current
-  --------------------------------------------------------------------------------
+Idx | File | Type | Lines | Current
+
+---
+
     0 | main.liquid                   | main         |    0-155  | <--
 
 --- include_parts_test ---
@@ -48,8 +52,10 @@ Total parts: 12
 Current part index when opening main.liquid: 0
 
 Parts order:
-  Idx | File                          | Type         | Lines     | Current
-  --------------------------------------------------------------------------------
+Idx | File | Type | Lines | Current
+
+---
+
     0 | main.liquid                   | main         |    0-4    | <--
     1 | included_1.liquid             | text_part    |    0-2    |
     2 | included_2.liquid             | text_part    |    0-0    |
@@ -60,7 +66,10 @@ Parts order:
     7 | included_shared_1.liquid      | shared_part  |    0-0    |
     8 | included_shared_2.liquid      | shared_part  |    0-0    |
     9 | included_shared_1.liquid      | shared_part  |    2-3    |
-   10 | main.liquid                   | main         |   12-12   |
-   11 | main.liquid                   | main         |   14-14   |
+
+10 | main.liquid | main | 12-12 |
+11 | main.liquid | main | 14-14 |
+
 ```
 
+```
