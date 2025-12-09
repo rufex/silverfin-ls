@@ -154,47 +154,62 @@ export class LiquidLanguageServer {
     // });
 
     this.connection.onHover(async (params): Promise<Hover | null> => {
-      if (!(this.settings.hover?.enabled ?? DEFAULT_SETTINGS.hover!.enabled)) {
-        this.logger.debug("Hover is disabled in settings");
+      try {
+        if (!(this.settings.hover?.enabled ?? DEFAULT_SETTINGS.hover!.enabled)) {
+          this.logger.debug("Hover is disabled in settings");
+          return null;
+        }
+
+        this.logger.debug(`Hover request for: ${params.textDocument.uri}`);
+
+        const hoverProvider = new HoverProvider(params, this.workspaceRoot);
+        const response = await hoverProvider.handleHoverRequest();
+        if (response) {
+          return {
+            contents: {
+              kind: MarkupKind.Markdown,
+              value: response,
+            },
+          };
+        }
+        return null;
+      } catch (error) {
+        this.logger.error(`Hover request failed: ${error}`);
         return null;
       }
-
-      this.logger.debug(`Hover request for: ${params.textDocument.uri}`);
-
-      const hoverProvider = new HoverProvider(params, this.workspaceRoot);
-      const response = await hoverProvider.handleHoverRequest();
-      if (response) {
-        return {
-          contents: {
-            kind: MarkupKind.Markdown,
-            value: response,
-          },
-        };
-      }
-      return null;
     });
 
     this.connection.onDefinition(async (params): Promise<Definition | null> => {
-      this.logger.debug(`Definition request for: ${params.textDocument.uri}`);
+      try {
+        this.logger.debug(`Definition request for: ${params.textDocument.uri}`);
 
-      const definitionProvider = new DefinitionProvider(
-        params,
-        this.workspaceRoot,
-      );
-      const response = await definitionProvider.handleDefinitionRequest();
-      return response;
+        const definitionProvider = new DefinitionProvider(
+          params,
+          this.workspaceRoot,
+        );
+        const response = await definitionProvider.handleDefinitionRequest();
+        return response;
+      } catch (error) {
+        this.logger.error(`Definition request failed: ${error}`);
+        return null;
+      }
     });
 
     this.connection.onReferences(
       async (params: ReferenceParams): Promise<Location[] | null> => {
-        this.logger.debug(`References request for: ${params.textDocument.uri}`);
+        try {
+          this.logger.debug(`References request for: ${params.textDocument.uri}`);
 
-        const referenceProvider = new ReferenceProvider(
-          params,
-          this.workspaceRoot,
-        );
-        const response = await referenceProvider.handleReferenceRequest();
-        return response;
+          const referenceProvider = new ReferenceProvider(
+            params,
+            this.workspaceRoot,
+          );
+          const response = await referenceProvider.handleReferenceRequest();
+          return response;
+        } catch (error) {
+          this.logger.error(`References request failed: ${error}`);
+          return null;
+        }
       },
     );
 
