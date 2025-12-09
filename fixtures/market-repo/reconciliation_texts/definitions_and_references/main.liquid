@@ -76,7 +76,7 @@ References:
 {% endfor %}
 {{ item_1 }}                                                    // Positioned on `item_1`, it should have one definition: `item_1` (line 65)
 
-{% comment %} Case: dynamic variables #TODO: not supported yet {% endcomment %}
+{% comment %} Case: dynamic variables {% endcomment %}
 
 Definitions:
 
@@ -96,8 +96,8 @@ References:
 {% assign foo_1 = [assigned_key_1] %}                           // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
 {% assign foo_2 = [captured_key_1] %}                           // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
 
-{% capture foo_3 %}{{ [assigned_key_1] }}{% endcomment %}       // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
-{% capture foo_4 %}{{ [captured_key_1] }}{% endcomment %}       // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
+{% capture foo_3 %}{{ [assigned_key_1] }}{% endcapture %}       // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
+{% capture foo_4 %}{{ [captured_key_1] }}{% endcapture %}       // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
 
 {% assign [assigned_key_1] = 'content' %}                       // Positioned on `[assigned_key_1]`, it should have one definition: `assigned_key_1` (line 69)
 {% assign [captured_key_1] = 'content' %}                       // Positioned on `[captured_key_1]`, it should have one definition: `captured_key_1` (line 71)
@@ -143,4 +143,13 @@ References:
 {{ 10.5 | round:round_var }}                                    // Positioned on `round_var`, should have one definition: `round_var` (line 120)
 {% capture filtered_content %}{{ undefined_value | default:default_var }}{% endcapture %} // Positioned on `default_var`, should have one definition: `default_var` (line 116)
 
+{% comment %} Case: re-assignment {% endcomment %}
+
+{% assign reassign_var = 'First Value' %}
+
+{{ reassign_var }}                                              // Positioned on `reassign_var`, it should have one definition: `reassign_var` (line 150)
+
+{% assign reassign_var = 'Second Value' %}
+
+{{ reassign_var }}                                              // Positioned on `reassign_var`, it should have two definitions: `reassign_var` (line 150) and `reassign_var` (line 154)
 

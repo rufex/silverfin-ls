@@ -350,9 +350,9 @@ describe("DefinitionProvider - Variables", () => {
       expect(result![0].range.start.line).toBe(3);
     });
 
-    xit("should find variable in capture content", async () => {
+    it("should find variable in capture content", async () => {
       // Line 4: {% assign simple_var = "Simple Value" %}
-      // Line 20: {% capture captured_simple_var %}{{ simple_var }}{% endcapture %}
+      // Line 23: {% capture captured_simple_var %}{{ simple_var }}{% endcapture %}
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
         position: { line: 22, character: 43 }, // Line 23, cursor on "simple_var" in capture
@@ -361,8 +361,10 @@ describe("DefinitionProvider - Variables", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in capture content are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(3);
     });
   });
 
@@ -401,7 +403,7 @@ describe("DefinitionProvider - Variables", () => {
       expect(result![0].range.start.line).toBe(6);
     });
 
-    xit("should find variable in capture content", async () => {
+    it("should find variable in capture content", async () => {
       // Line 7: {% capture captured_var %}...{% endcapture %}
       // Line 26: {% capture captured_captured_var %}{{ captured_var %}{% endcapture %}
       const params: DefinitionParams = {
@@ -412,8 +414,10 @@ describe("DefinitionProvider - Variables", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in capture content are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(6);
     });
   });
 
@@ -455,11 +459,10 @@ describe("DefinitionProvider - Variables", () => {
   });
 
   describe("Variable - For Loop Variable", () => {
-    xit("should find loop variable definition", async () => {
+    it("should find loop variable definition", async () => {
       // Line 11: {% for loop_var in items %}
       // Line 12: {{ loop_var }}
       // Loop variables are defined inline in the for statement
-      // Current implementation doesn't support finding them
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
         position: { line: 11, character: 6 }, // Line 12, cursor on "loop_var"
@@ -468,8 +471,10 @@ describe("DefinitionProvider - Variables", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Loop variable definitions are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(10); // for loop statement line
     });
   });
 
@@ -508,10 +513,9 @@ describe("DefinitionProvider - Variables", () => {
       expect(result![0].range.start.line).toBe(2);
     });
 
-    xit("should find variable in capture content", async () => {
+    it("should find variable in capture content", async () => {
       // Text part line 3: {% assign text_part_var = "From Text Part" %}
       // Main file line 32: {% capture captured_text_part_var %}{{ text_part_var }}{% endcapture %}
-      // Variables inside capture blocks are not currently identified
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
         position: { line: 31, character: 48 }, // Line 32, cursor on "text_part_var" in capture
@@ -520,8 +524,10 @@ describe("DefinitionProvider - Variables", () => {
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in capture content are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result![0].uri).toContain(textPartPath);
+      expect(result![0].range.start.line).toBe(2);
     });
   });
 
@@ -616,21 +622,23 @@ describe("DefinitionProvider - Variables", () => {
       expect(result![1].range.start.line).toBe(44);
     });
 
-    xit("should NOT find variable in capture content (limitation: variables in capture not supported)", async () => {
+    it("should find variable in capture content with multiple definitions", async () => {
       // Line 44: {% assign multi_var = "First Definition" %}
       // Line 45: {% assign multi_var = "Second Definition" %}
       // Line 48: {% capture captured_multi_var %}{{ multi_var }}{% endcapture %}
-      // Variables inside capture blocks are not currently identified
       const params: DefinitionParams = {
         textDocument: { uri: URI.file(mainFilePath).toString() },
-        position: { line: 47, character: 44 }, // Line 48, cursor on "multi_var" in capture
+        position: { line: 47, character: 38 }, // Line 48, cursor on "multi_var" in capture
       };
 
       const provider = new DefinitionProvider(params, fixturesPath);
       const result = await provider.handleDefinitionRequest();
 
-      // #TODO: Variables in capture content are not currently supported
       expect(result).not.toBeNull();
+      expect(result!.length).toBe(2); // Should find both definitions
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(43);
+      expect(result![1].range.start.line).toBe(44);
     });
   });
 

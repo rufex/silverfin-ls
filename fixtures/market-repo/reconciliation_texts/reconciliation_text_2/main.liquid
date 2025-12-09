@@ -1,4 +1,10 @@
 {% include 'shared/shared_part_1' %}
 {% include 'shared/shared_part_2' %}
+{% include 'shared/variable_shared' %}
 
 {% t "example_key" %}
+{% t "shared_translation_1" %}
+
+{% comment %} Using shared_var from variable_shared {% endcomment %}
+{{ shared_var }}
+{% assign test_shared = shared_var %}

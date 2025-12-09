@@ -157,6 +157,23 @@ export class LiquidTagIdentifier {
   }
 
   /**
+   * Gets the identifier node at the specified position.
+   * Public method for external use (e.g., ReferenceProvider).
+   *
+   * @param text - The source text to analyze
+   * @param line - Zero-based line number of the position to check
+   * @param column - Zero-based column number of the position to check
+   * @returns The identifier SyntaxNode if found, or null
+   */
+  public getIdentifierAtPosition(
+    text: string,
+    line: number,
+    column: number,
+  ): Parser.SyntaxNode | null {
+    return this.isIdentifier(text, line, column);
+  }
+
+  /**
    * Identifies if there's an identifier node at the specified position.
    * Returns the identifier node if found, null otherwise.
    *

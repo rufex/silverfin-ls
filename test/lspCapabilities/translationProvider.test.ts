@@ -20,7 +20,7 @@ describe("TranslationProvider - Translation Info Extraction", () => {
     // Find the translation_statement node in the tree
     for (let i = 0; i < tree.rootNode.childCount; i++) {
       const child = tree.rootNode.child(i);
-      if (child && child.type === 'translation_statement') {
+      if (child && child.type === "translation_statement") {
         return child;
       }
     }

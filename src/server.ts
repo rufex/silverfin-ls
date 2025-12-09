@@ -10,6 +10,8 @@ import {
   Definition,
   DidChangeConfigurationNotification,
   MarkupKind,
+  Location,
+  ReferenceParams,
 } from "vscode-languageserver/node";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -17,6 +19,7 @@ import { URI } from "vscode-uri";
 import { Logger } from "./logger";
 import { HoverProvider } from "./lspCapabilities/hoverProvider";
 import { DefinitionProvider } from "./lspCapabilities/definitionProvider";
+import { ReferenceProvider } from "./lspCapabilities/referenceProvider";
 
 interface LSSettings {
   hover?: {
@@ -95,6 +98,7 @@ export class LiquidLanguageServer {
           textDocumentSync: TextDocumentSyncKind.Full,
           hoverProvider: true,
           definitionProvider: true,
+          referencesProvider: true,
           ...(this.hasConfigurationCapability && {
             workspace: {
               workspaceFolders: {
@@ -180,6 +184,19 @@ export class LiquidLanguageServer {
       const response = await definitionProvider.handleDefinitionRequest();
       return response;
     });
+
+    this.connection.onReferences(
+      async (params: ReferenceParams): Promise<Location[] | null> => {
+        this.logger.debug(`References request for: ${params.textDocument.uri}`);
+
+        const referenceProvider = new ReferenceProvider(
+          params,
+          this.workspaceRoot,
+        );
+        const response = await referenceProvider.handleReferenceRequest();
+        return response;
+      },
+    );
 
     this.documents.listen(this.connection);
   }

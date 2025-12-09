@@ -473,7 +473,7 @@ describe("Go to Definition Cases - Definitions", () => {
     // Later references to [key] should find both:
     // 1. The key variable definition
     // 2. The deferred variable definition
-    
+
     it("should find two definitions for assigned key after dynamic assignment", async () => {
       // Line 86: {% assign assigned_key_1 = 'item_assign_key' %}
       // Line 102: {% assign [assigned_key_1] = 'content' %}
@@ -491,7 +491,9 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![1].uri).toContain(mainFilePath);
       // Should find both line 85 (key definition) and line 101 (deferred variable definition)
-      const lines = result!.map(r => r.range.start.line).sort((a, b) => a - b);
+      const lines = result!
+        .map((r) => r.range.start.line)
+        .sort((a, b) => a - b);
       expect(lines).toEqual([85, 101]);
     });
 
@@ -512,7 +514,9 @@ describe("Go to Definition Cases - Definitions", () => {
       expect(result![0].uri).toContain(mainFilePath);
       expect(result![1].uri).toContain(mainFilePath);
       // Should find both line 87 (key definition) and line 102 (deferred variable definition)
-      const lines = result!.map(r => r.range.start.line).sort((a, b) => a - b);
+      const lines = result!
+        .map((r) => r.range.start.line)
+        .sort((a, b) => a - b);
       expect(lines).toEqual([87, 102]);
     });
   });
@@ -552,7 +556,9 @@ describe("Go to Definition Cases - Definitions", () => {
         expect(result!.length).toBe(2);
         expect(result![0].uri).toContain(mainFilePath);
         expect(result![1].uri).toContain(mainFilePath);
-        const lines = result!.map(r => r.range.start.line).sort((a, b) => a - b);
+        const lines = result!
+          .map((r) => r.range.start.line)
+          .sort((a, b) => a - b);
         expect(lines).toEqual([116, 117]);
       });
 
@@ -784,6 +790,78 @@ describe("Go to Definition Cases - Definitions", () => {
         expect(result![0].uri).toContain(mainFilePath);
         expect(result![0].range.start.line).toBe(115);
       });
+    });
+  });
+
+  describe("Case: re-assignment", () => {
+    it("should find first definition when positioned on first reference", async () => {
+      // Line 148: {% assign reassign_var = 'First Value' %} - first definition
+      // Line 150: {{ reassign_var }} - first reference (testing from here)
+      // Line 152: {% assign reassign_var = 'Second Value' %} - second definition
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 149, character: 3 }, // On first {{ reassign_var }}
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![0].range.start.line).toBe(147); // Line 148 (0-indexed)
+    });
+
+    it("should find both definitions when positioned on second reference", async () => {
+      // Line 148: {% assign reassign_var = 'First Value' %} - first definition
+      // Line 152: {% assign reassign_var = 'Second Value' %} - second definition
+      // Line 154: {{ reassign_var }} - second reference (testing from here)
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 153, character: 3 }, // On second {{ reassign_var }}
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(2); // Both definitions should be found
+      expect(result![0].uri).toContain(mainFilePath);
+      expect(result![1].uri).toContain(mainFilePath);
+
+      const lines = result!
+        .map((r) => r.range.start.line)
+        .sort((a, b) => a - b);
+      expect(lines).toEqual([147, 151]); // Lines 148 and 152 (0-indexed)
+    });
+
+    it("should find first definition when positioned on first definition itself", async () => {
+      // Line 148: {% assign reassign_var = 'First Value' %} - testing from here
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 147, character: 11 }, // On reassign_var in first assign
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      // When on a definition, go-to-definition returns null (can't go to itself)
+      expect(result).toBeNull();
+    });
+
+    it("should find both definitions when positioned on second definition", async () => {
+      // Line 148: {% assign reassign_var = 'First Value' %} - first definition
+      // Line 152: {% assign reassign_var = 'Second Value' %} - testing from here
+      const params: DefinitionParams = {
+        textDocument: { uri: URI.file(mainFilePath).toString() },
+        position: { line: 151, character: 11 }, // On reassign_var in second assign
+      };
+
+      const provider = new DefinitionProvider(params, fixturesPath);
+      const result = await provider.handleDefinitionRequest();
+
+      // When on a definition, go-to-definition returns null
+      expect(result).toBeNull();
     });
   });
 });

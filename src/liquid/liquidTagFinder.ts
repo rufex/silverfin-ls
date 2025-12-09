@@ -3,8 +3,9 @@ import * as Parser from "tree-sitter";
 import { TreeSitterLiquidProvider } from "./treeSitterLiquidProvider";
 import * as fs from "fs";
 import { TemplatePartsCollectionManager } from "../templates/templatePartsCollectionManager";
+import { TemplatePart } from "../templates/types";
 
-interface NodeInTemplate {
+export interface NodeInTemplate {
   node: Parser.SyntaxNode;
   templatePart: { fileFullPath: string };
 }
@@ -30,17 +31,30 @@ export class LiquidTagFinder {
     );
 
     if (!templateDetails) {
-      this.logger.warn(`No template parts found for URI: ${textDocumentUri}`);
+      this.logger.error(
+        `No template map found for URI: ${textDocumentUri}. ` +
+          "Cannot find nodes without a valid template map.",
+      );
       return null;
     }
     const { templateParts, currentFileIndex } = templateDetails;
 
-    if (!templateParts || currentFileIndex === -1) {
-      this.logger.warn(`No template parts found for URI: ${textDocumentUri}`);
+    if (!templateParts || templateParts.length === 0) {
+      this.logger.error(`Template map is empty for URI: ${textDocumentUri}.`);
       return null;
     }
 
-    this.logger.info("Parts identified: " + templateParts.length);
+    if (currentFileIndex === -1 || currentFileIndex >= templateParts.length) {
+      this.logger.error(
+        `Invalid current file index (${currentFileIndex}) for URI: ${textDocumentUri}. ` +
+          `Template has ${templateParts.length} parts.`,
+      );
+      return null;
+    }
+
+    this.logger.info(
+      `Template map loaded: ${templateParts.length} parts, current file at index ${currentFileIndex}`,
+    );
 
     const matchingNodes: NodeInTemplate[] = [];
 
@@ -150,17 +164,30 @@ export class LiquidTagFinder {
     );
 
     if (!templateDetails) {
-      this.logger.warn(`No template parts found for URI: ${textDocumentUri}`);
+      this.logger.error(
+        `No template map found for URI: ${textDocumentUri}. ` +
+          "Cannot find variable definitions without a valid template map.",
+      );
       return null;
     }
     const { templateParts, currentFileIndex } = templateDetails;
 
-    if (!templateParts || currentFileIndex === -1) {
-      this.logger.warn(`No template parts found for URI: ${textDocumentUri}`);
+    if (!templateParts || templateParts.length === 0) {
+      this.logger.error(`Template map is empty for URI: ${textDocumentUri}.`);
       return null;
     }
 
-    this.logger.info("Parts identified: " + templateParts.length);
+    if (currentFileIndex === -1 || currentFileIndex >= templateParts.length) {
+      this.logger.error(
+        `Invalid current file index (${currentFileIndex}) for URI: ${textDocumentUri}. ` +
+          `Template has ${templateParts.length} parts.`,
+      );
+      return null;
+    }
+
+    this.logger.info(
+      `Template map loaded: ${templateParts.length} parts, current file at index ${currentFileIndex}`,
+    );
 
     const matchingNodes: NodeInTemplate[] = [];
 
@@ -374,5 +401,376 @@ export class LiquidTagFinder {
     const loopStart = loopNode.startPosition.row;
     const loopEnd = loopNode.endPosition.row;
     return position >= loopStart && position <= loopEnd;
+  }
+
+  public async findAllVariableReferencesInScope(
+    textDocumentUri: string,
+    currentRow: number,
+    variableName: string,
+    workspaceRoot: string,
+  ): Promise<NodeInTemplate[] | null> {
+    const templateManager =
+      TemplatePartsCollectionManager.getInstance(workspaceRoot);
+    const templateDetails = await templateManager.getMapAndIndexFromUri(
+      textDocumentUri,
+      currentRow,
+    );
+
+    if (!templateDetails) {
+      this.logger.error(
+        `No template map found for URI: ${textDocumentUri}. ` +
+          "Cannot provide references without a valid template map. " +
+          "This indicates the file is not part of a recognized template or the template structure could not be determined.",
+      );
+      return null;
+    }
+    const { templateParts, currentFileIndex } = templateDetails;
+
+    if (!templateParts || templateParts.length === 0) {
+      this.logger.error(
+        `Template map is empty for URI: ${textDocumentUri}. ` +
+          "Cannot provide references without template parts.",
+      );
+      return null;
+    }
+
+    if (currentFileIndex === -1 || currentFileIndex >= templateParts.length) {
+      this.logger.error(
+        `Invalid current file index (${currentFileIndex}) for URI: ${textDocumentUri}. ` +
+          `Template has ${templateParts.length} parts. Cannot identify current file position in template map.`,
+      );
+      return null;
+    }
+
+    const currentFilePart = templateParts[currentFileIndex];
+    if (!currentFilePart) {
+      this.logger.error(
+        `Current file part is undefined at index ${currentFileIndex} for URI: ${textDocumentUri}. ` +
+          "This should never happen if currentFileIndex is valid. Template map may be corrupted.",
+      );
+      return null;
+    }
+
+    this.logger.info(
+      `Template map loaded: ${templateParts.length} parts, current file at index ${currentFileIndex} (${currentFilePart.fileFullPath})`,
+    );
+
+    // First, check if we're inside a loop with a loop variable that matches
+    const currentFileContent = fs.readFileSync(
+      currentFilePart.fileFullPath,
+      "utf8",
+    );
+    const currentLoopContext = this.findLoopContext(
+      currentFileContent,
+      currentRow,
+      variableName,
+    );
+
+    // If we're in a loop scope with this variable name, only find references in that loop
+    if (currentLoopContext) {
+      return this.findLoopScopedReferences(
+        currentFileContent,
+        currentFilePart,
+        currentLoopContext,
+        variableName,
+      );
+    }
+
+    // Otherwise, find all references in scope but exclude those inside loops that shadow the variable
+    return this.findGlobalScopedReferences(templateParts, variableName);
+  }
+
+  /**
+   * Find references within a specific loop scope.
+   */
+  private findLoopScopedReferences(
+    fileContent: string,
+    templatePart: TemplatePart,
+    loopNode: Parser.SyntaxNode,
+    variableName: string,
+  ): NodeInTemplate[] {
+    const matchingNodes: NodeInTemplate[] = [];
+    const loopReferences = this.findVariableReferencesInText(
+      fileContent,
+      variableName,
+    );
+
+    for (const node of loopReferences) {
+      if (this.isPositionInLoopScope(node.startPosition.row, loopNode)) {
+        matchingNodes.push({ node, templatePart });
+      }
+    }
+
+    this.logger.debug(
+      `Found ${matchingNodes.length} references for loop variable: ${variableName}`,
+    );
+    return matchingNodes;
+  }
+
+  /**
+   * Find references in global scope, excluding shadowed loop variables.
+   * NOTE: Unlike definitions, references should be found in ALL template parts,
+   * not just those before the current position.
+   */
+  private findGlobalScopedReferences(
+    templateParts: TemplatePart[],
+    variableName: string,
+  ): NodeInTemplate[] {
+    const matchingNodes: NodeInTemplate[] = [];
+
+    // Search ALL template parts for references (not just up to currentFileIndex)
+    for (let i = 0; i < templateParts.length; i++) {
+      const part = templateParts[i];
+
+      try {
+        const fileContent = fs.readFileSync(part.fileFullPath, "utf8");
+        const nodes = this.findVariableReferencesInText(
+          fileContent,
+          variableName,
+        );
+
+        const nodesInRange = nodes.filter(
+          (node) =>
+            node.startPosition.row >= part.startLine &&
+            node.endPosition.row <= part.endLine,
+        );
+
+        // Filter out references inside loops that shadow this variable
+        for (const node of nodesInRange) {
+          const loopContext = this.findLoopContext(
+            fileContent,
+            node.startPosition.row,
+            variableName,
+          );
+
+          // Only include if not in a shadowing loop
+          if (!loopContext) {
+            matchingNodes.push({ node, templatePart: part });
+          }
+        }
+      } catch (error) {
+        this.logger.warn(`Could not read file: ${part.fileFullPath}, ${error}`);
+      }
+    }
+
+    this.logger.debug(
+      `Found ${matchingNodes.length} references for variable: ${variableName} across ${templateParts.length} template parts`,
+    );
+    return matchingNodes;
+  }
+
+  /**
+   * Find if the current position is inside a for loop that defines a variable with the given name
+   */
+  private findLoopContext(
+    text: string,
+    position: number,
+    variableName: string,
+  ): Parser.SyntaxNode | null {
+    const tree = this.parser.parseTree(text);
+    if (!tree) {
+      return null;
+    }
+
+    try {
+      // Query for for loops
+      const queryString = "(for_loop_statement) @loop";
+      const matches = this.parser.queryTree(queryString, tree);
+
+      for (const match of matches) {
+        for (const capture of match.captures) {
+          if (capture.name === "loop") {
+            const loopNode = capture.node;
+
+            // Check if position is inside this loop
+            if (this.isPositionInLoopScope(position, loopNode)) {
+              // Check if this loop defines the variable
+              const itemField = loopNode.childForFieldName("item");
+              if (itemField && itemField.text === variableName) {
+                return loopNode;
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error finding loop context: ${error}`);
+    }
+
+    return null;
+  }
+
+  private findVariableReferencesInText(
+    text: string,
+    variableName: string,
+  ): Parser.SyntaxNode[] {
+    const tree = this.parser.parseTree(text);
+    if (!tree) {
+      return [];
+    }
+
+    const matchingNodes: Parser.SyntaxNode[] = [];
+
+    try {
+      const queryString = "(identifier) @var";
+      const matches = this.parser.queryTree(queryString, tree);
+
+      for (const match of matches) {
+        for (const capture of match.captures) {
+          if (capture.name === "var" && capture.node.text === variableName) {
+            if (this.isVariableReference(capture.node)) {
+              matchingNodes.push(capture.node);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error querying for variable references: ${error}`);
+    }
+
+    return matchingNodes;
+  }
+
+  /**
+   * Determines if an identifier node is a variable reference (not a definition).
+   *
+   * Context analysis:
+   * - References: {{ var }}, {% assign x = var %}, {% if var %}, etc.
+   * - Definitions: {% assign var = ... %}, {% capture var %}, {% for var in ... %}
+   *
+   * @param identifierNode - The identifier node to check
+   * @returns true if the identifier is a variable reference, false if it's a definition or other use
+   */
+  private isVariableReference(identifierNode: Parser.SyntaxNode): boolean {
+    if (identifierNode.type !== "identifier") {
+      return false;
+    }
+
+    const parent = identifierNode.parent;
+    if (!parent) {
+      return false;
+    }
+
+    let fieldName: string | null = null;
+    for (let i = 0; i < parent.childCount; i++) {
+      if (parent.child(i) === identifierNode) {
+        fieldName = parent.fieldNameForChild(i);
+        break;
+      }
+    }
+
+    switch (parent.type) {
+      case "program":
+      case "block":
+        return true;
+
+      case "assignment_statement":
+        return fieldName === "value";
+
+      case "capture_statement":
+        return false;
+
+      case "for_loop_statement":
+        return fieldName === "iterator";
+
+      case "if_statement":
+      case "unless_statement":
+      case "elsif_clause":
+        return fieldName === "condition";
+
+      case "push_statement":
+      case "pop_statement":
+        return fieldName === "array" || fieldName === "item";
+
+      case "filter":
+        return fieldName === "body";
+
+      case "argument_list":
+        return true;
+
+      case "predicate":
+        return fieldName === "left" || fieldName === "right";
+
+      case "translation_expression":
+        return fieldName === "key";
+
+      case "deferred_variable":
+        return fieldName === "key";
+
+      default:
+        return false;
+    }
+  }
+
+  public async findAllTranslationReferences(
+    textDocumentUri: string,
+    currentRow: number,
+    translationKey: string,
+    workspaceRoot: string,
+  ): Promise<NodeInTemplate[] | null> {
+    const templateManager =
+      TemplatePartsCollectionManager.getInstance(workspaceRoot);
+    const templateDetails = await templateManager.getMapAndIndexFromUri(
+      textDocumentUri,
+      currentRow,
+    );
+
+    if (!templateDetails) {
+      this.logger.error(
+        `No template map found for URI: ${textDocumentUri}. ` +
+          "Cannot find translation references without a valid template map.",
+      );
+      return null;
+    }
+    const { templateParts, currentFileIndex } = templateDetails;
+
+    if (!templateParts || templateParts.length === 0) {
+      this.logger.error(`Template map is empty for URI: ${textDocumentUri}.`);
+      return null;
+    }
+
+    if (currentFileIndex === -1 || currentFileIndex >= templateParts.length) {
+      this.logger.error(
+        `Invalid current file index (${currentFileIndex}) for URI: ${textDocumentUri}. ` +
+          `Template has ${templateParts.length} parts.`,
+      );
+      return null;
+    }
+
+    this.logger.info(
+      `Template map loaded: ${templateParts.length} parts, current file at index ${currentFileIndex}`,
+    );
+
+    const matchingNodes: NodeInTemplate[] = [];
+    const searchFor = "translation_expression";
+
+    // Search ALL template parts for translation references (not just up to currentFileIndex)
+    for (let i = 0; i < templateParts.length; i++) {
+      const part = templateParts[i];
+
+      try {
+        const fileContent = fs.readFileSync(part.fileFullPath, "utf8");
+        const nodes = this.findNodesInText(fileContent, translationKey, [
+          searchFor,
+        ]);
+
+        const nodesInRange = nodes.filter(
+          (node) =>
+            node.startPosition.row >= part.startLine &&
+            node.endPosition.row <= part.endLine,
+        );
+
+        nodesInRange.forEach((node) =>
+          matchingNodes.push({ node, templatePart: part }),
+        );
+      } catch (error) {
+        this.logger.warn(`Could not read file: ${part.fileFullPath}, ${error}`);
+      }
+    }
+
+    this.logger.debug(
+      `Found ${matchingNodes.length} references for translation key: ${translationKey} across ${templateParts.length} template parts`,
+    );
+    return matchingNodes;
   }
 }
