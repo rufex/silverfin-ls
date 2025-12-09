@@ -21,6 +21,12 @@ export class TreeSitterLiquidProvider {
     }
   }
 
+  /**
+   * Parse liquid template text into a syntax tree.
+   * 
+   * @param text The liquid template text to parse
+   * @returns The parsed syntax tree, or null if parsing fails
+   */
   public parseTree(text: string): Parser.Tree | null {
     if (!this.isInitialized) {
       return null;

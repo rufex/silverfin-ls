@@ -12,6 +12,8 @@ export class HoverProvider {
   private textDocumentUri: HoverParams["textDocument"]["uri"];
   private position: HoverParams["position"];
   private logger: Logger;
+  private identifier: LiquidTagIdentifier;
+  private finder: LiquidTagFinder;
   // private documentationProvider: DocumentationProvider;
 
   constructor(params: HoverParams, workspaceRoot?: string | null) {
@@ -19,6 +21,8 @@ export class HoverProvider {
     this.textDocumentUri = params.textDocument.uri;
     this.position = params.position;
     this.logger = new Logger("HoverProvider");
+    this.identifier = new LiquidTagIdentifier();
+    this.finder = new LiquidTagFinder();
     // this.documentationProvider = new DocumentationProvider();
 
     this.logger.info("HoverProvider initialized");
@@ -35,8 +39,7 @@ export class HoverProvider {
 
     // IDENTIFY NODE
 
-    const identifier = new LiquidTagIdentifier();
-    const liquidNode = identifier.identifyNode(
+    const liquidNode = this.identifier.identifyNode(
       document,
       this.position.line,
       this.position.character,
@@ -51,10 +54,9 @@ export class HoverProvider {
     if (liquidNode.type === "translation_expression") {
       this.logger.debug(`Found translation expression: ${liquidNode}`);
 
-      const translationKey = identifier.identifyNodeKey(liquidNode);
+      const translationKey = this.identifier.identifyNodeKey(liquidNode);
       if (translationKey && this.workspaceRoot) {
-        const finder = new LiquidTagFinder();
-        const nodes = await finder.findAllNodesBeforePosition(
+        const nodes = await this.finder.findAllNodesBeforePosition(
           this.textDocumentUri,
           this.position.line,
           translationKey,

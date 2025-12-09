@@ -20,6 +20,8 @@ export class ReferenceProvider {
   private position: ReferenceParams["position"];
   private context: ReferenceParams["context"];
   private logger: Logger;
+  private identifier: LiquidTagIdentifier;
+  private finder: LiquidTagFinder;
 
   constructor(params: ReferenceParams, workspaceRoot: string | null) {
     this.workspaceRoot = workspaceRoot || null;
@@ -27,6 +29,8 @@ export class ReferenceProvider {
     this.position = params.position;
     this.context = params.context;
     this.logger = new Logger("ReferenceProvider");
+    this.identifier = new LiquidTagIdentifier();
+    this.finder = new LiquidTagFinder();
   }
 
   public async handleReferenceRequest(): Promise<Location[] | null> {
@@ -38,10 +42,8 @@ export class ReferenceProvider {
       return null;
     }
 
-    const identifier = new LiquidTagIdentifier();
-
     // Check for translation tag (both expressions and statements/definitions)
-    const liquidNode = identifier.identifyNode(
+    const liquidNode = this.identifier.identifyNode(
       fileContent,
       this.position.line,
       this.position.character,
@@ -55,7 +57,7 @@ export class ReferenceProvider {
     }
 
     // Check for variable (reference or definition)
-    const variableNode = identifier.identifyVariable(
+    const variableNode = this.identifier.identifyVariable(
       fileContent,
       this.position.line,
       this.position.character,
@@ -66,7 +68,7 @@ export class ReferenceProvider {
     }
 
     // If not a reference, check if it's a definition
-    const identifierNode = identifier.getIdentifierAtPosition(
+    const identifierNode = this.identifier.getIdentifierAtPosition(
       fileContent,
       this.position.line,
       this.position.character,
@@ -95,8 +97,7 @@ export class ReferenceProvider {
       return null;
     }
 
-    const finder = new LiquidTagFinder();
-    const nodes = await finder.findAllVariableReferencesInScope(
+    const nodes = await this.finder.findAllVariableReferencesInScope(
       this.textDocumentUri,
       this.position.line,
       variableName,
@@ -115,7 +116,7 @@ export class ReferenceProvider {
     // Always include definitions (LSP standard behavior)
     // includeDeclaration defaults to true per LSP spec
     if (this.context.includeDeclaration !== false) {
-      const definitions = await finder.findAllVariableDefinitionsBeforePosition(
+      const definitions = await this.finder.findAllVariableDefinitionsBeforePosition(
         this.textDocumentUri,
         ALL_LINES, // Search entire file for definitions
         variableName,
@@ -142,15 +143,13 @@ export class ReferenceProvider {
   private async handleTranslationReferences(
     liquidNode: SyntaxNode,
   ): Promise<Location[] | null> {
-    const identifier = new LiquidTagIdentifier();
-    const nodeKey = identifier.identifyNodeKey(liquidNode);
+    const nodeKey = this.identifier.identifyNodeKey(liquidNode);
 
     if (!nodeKey || !this.workspaceRoot) {
       return null;
     }
 
-    const finder = new LiquidTagFinder();
-    const nodes = await finder.findAllTranslationReferences(
+    const nodes = await this.finder.findAllTranslationReferences(
       this.textDocumentUri,
       this.position.line,
       nodeKey,
@@ -169,7 +168,7 @@ export class ReferenceProvider {
     // Always include definitions (LSP standard behavior)
     // includeDeclaration defaults to true per LSP spec
     if (this.context.includeDeclaration !== false) {
-      const definitions = await finder.findAllNodesBeforePosition(
+      const definitions = await this.finder.findAllNodesBeforePosition(
         this.textDocumentUri,
         ALL_LINES, // Search entire file for definitions
         nodeKey,

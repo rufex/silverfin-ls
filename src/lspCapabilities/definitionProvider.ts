@@ -14,12 +14,16 @@ export class DefinitionProvider {
   private textDocumentUri: DefinitionParams["textDocument"]["uri"];
   private position: DefinitionParams["position"];
   private logger: Logger;
+  private identifier: LiquidTagIdentifier;
+  private finder: LiquidTagFinder;
 
   constructor(params: DefinitionParams, workspaceRoot: string | null) {
     this.workspaceRoot = workspaceRoot || null;
     this.textDocumentUri = params.textDocument.uri;
     this.position = params.position;
     this.logger = new Logger("DefinitionProvider");
+    this.identifier = new LiquidTagIdentifier();
+    this.finder = new LiquidTagFinder();
   }
 
   public async handleDefinitionRequest(): Promise<Location[] | null> {
@@ -36,8 +40,7 @@ export class DefinitionProvider {
     // Search for all definitions in the template files. Using LiquidTagFinder
     // Examples in fixtures/liquid_tag_reference.liquid
 
-    const identifier = new LiquidTagIdentifier();
-    const liquidNode = identifier.identifyNode(
+    const liquidNode = this.identifier.identifyNode(
       fileContent,
       this.position.line,
       this.position.character,
@@ -60,7 +63,7 @@ export class DefinitionProvider {
     }
 
     // VARIABLE
-    const variableNode = identifier.identifyVariable(
+    const variableNode = this.identifier.identifyVariable(
       fileContent,
       this.position.line,
       this.position.character,
@@ -117,11 +120,9 @@ export class DefinitionProvider {
     liquidNode: SyntaxNode,
   ): Promise<Location[] | null> {
     const searchFor = "translation_statement";
-    const identifier = new LiquidTagIdentifier();
-    const nodeKey = identifier.identifyNodeKey(liquidNode);
+    const nodeKey = this.identifier.identifyNodeKey(liquidNode);
     if (nodeKey && this.workspaceRoot) {
-      const finder = new LiquidTagFinder();
-      const nodes = await finder.findAllNodesBeforePosition(
+      const nodes = await this.finder.findAllNodesBeforePosition(
         this.textDocumentUri,
         this.position.line,
         nodeKey,
@@ -169,8 +170,7 @@ export class DefinitionProvider {
       return null;
     }
 
-    const finder = new LiquidTagFinder();
-    const nodes = await finder.findAllVariableDefinitionsBeforePosition(
+    const nodes = await this.finder.findAllVariableDefinitionsBeforePosition(
       this.textDocumentUri,
       this.position.line,
       variableName,
