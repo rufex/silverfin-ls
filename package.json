@@ -1,4 +1,6 @@
 {
+  "name": "liquid-ls",
+  "version": "0.1.0",
   "scripts": {
     "build": "tsc && cp -r docs out/",
     "start": "node ./out/index.js --stdio",

@@ -16,6 +16,8 @@ import {
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { URI } from "vscode-uri";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { Logger } from "./logger";
 import { HoverProvider } from "./lspCapabilities/hoverProvider";
 import { DefinitionProvider } from "./lspCapabilities/definitionProvider";
@@ -54,7 +56,28 @@ export class LiquidLanguageServer {
     this.setupHandlers();
   }
 
+  public start(): void {
+    this.connection.listen();
+  }
+
+  public stop(): void {
+    this.connection.dispose();
+  }
+
   private setupHandlers(): void {
+    this.setupOnInitializeHandler();
+    this.setupOnInitializedHandler();
+    this.setupOnDidChangeConfigurationHandler();
+    this.setupOnDidOpenHandler();
+    this.setupOnDidSaveHandler();
+    this.setupOnDidChangeContentHandler();
+    this.setupOnHoverHandler();
+    this.setupOnDefinitionHandler();
+    this.setupOnReferencesHandler();
+    this.documents.listen(this.connection);
+  }
+
+  private setupOnInitializeHandler(): void {
     this.connection.onInitialize((params: InitializeParams) => {
       // Update log level and settings from initialization options if provided
       const initOptions = params.initializationOptions as
@@ -122,9 +145,12 @@ export class LiquidLanguageServer {
 
       return result;
     });
+  }
 
+  private setupOnInitializedHandler(): void {
     this.connection.onInitialized(() => {
       this.logger.info("Server initialized");
+      this.logVersion();
 
       // Only register for configuration changes if the client supports dynamic registration
       // and we have configuration capability
@@ -138,7 +164,9 @@ export class LiquidLanguageServer {
         );
       }
     });
+  }
 
+  private setupOnDidChangeConfigurationHandler(): void {
     this.connection.onDidChangeConfiguration((change) => {
       if (this.hasConfigurationCapability) {
         this.logger.info("Configuration changed, updating settings");
@@ -152,18 +180,24 @@ export class LiquidLanguageServer {
         `Hover enabled: ${this.settings.hover?.enabled ?? DEFAULT_SETTINGS.hover!.enabled}`,
       );
     });
+  }
 
+  private setupOnDidOpenHandler(): void {
     // Track last visited template from document open/change events
     this.documents.onDidOpen((event) => {
       const tracker = TemplateTracker.getInstance();
       tracker.updateFromUri(event.document.uri);
     });
+  }
 
+  private setupOnDidChangeContentHandler(): void {
     this.documents.onDidChangeContent((change) => {
       const tracker = TemplateTracker.getInstance();
       tracker.updateFromUri(change.document.uri);
     });
+  }
 
+  private setupOnHoverHandler(): void {
     this.connection.onHover(async (params): Promise<Hover | null> => {
       try {
         if (
@@ -195,7 +229,9 @@ export class LiquidLanguageServer {
         return null;
       }
     });
+  }
 
+  private setupOnDefinitionHandler(): void {
     this.connection.onDefinition(async (params): Promise<Definition | null> => {
       try {
         this.logger.debug(`Definition request for: ${params.textDocument.uri}`);
@@ -215,7 +251,9 @@ export class LiquidLanguageServer {
         return null;
       }
     });
+  }
 
+  private setupOnReferencesHandler(): void {
     this.connection.onReferences(
       async (params: ReferenceParams): Promise<Location[] | null> => {
         try {
@@ -239,7 +277,9 @@ export class LiquidLanguageServer {
         }
       },
     );
+  }
 
+  private setupOnDidSaveHandler(): void {
     // Regenerate template maps when liquid files are saved
     this.documents.onDidSave(async (change) => {
       const uri = change.document.uri;
@@ -257,15 +297,15 @@ export class LiquidLanguageServer {
         }
       }
     });
-
-    this.documents.listen(this.connection);
   }
 
-  public start(): void {
-    this.connection.listen();
-  }
-
-  public stop(): void {
-    this.connection.dispose();
+  private logVersion(): void {
+    try {
+      const packageJsonPath = join(__dirname, "..", "package.json");
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+      this.logger.info(`Liquid Language Server v${packageJson.version}`);
+    } catch (error) {
+      this.logger.warn(`Could not read version from package.json: ${error}`);
+    }
   }
 }
