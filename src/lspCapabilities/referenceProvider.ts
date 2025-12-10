@@ -116,12 +116,13 @@ export class ReferenceProvider {
     // Always include definitions (LSP standard behavior)
     // includeDeclaration defaults to true per LSP spec
     if (this.context.includeDeclaration !== false) {
-      const definitions = await this.finder.findAllVariableDefinitionsBeforePosition(
-        this.textDocumentUri,
-        ALL_LINES, // Search entire file for definitions
-        variableName,
-        this.workspaceRoot,
-      );
+      const definitions =
+        await this.finder.findAllVariableDefinitionsBeforePosition(
+          this.textDocumentUri,
+          ALL_LINES, // Search entire file for definitions
+          variableName,
+          this.workspaceRoot,
+        );
 
       if (definitions && definitions.length > 0) {
         this.addUniqueLocations(
@@ -200,7 +201,7 @@ export class ReferenceProvider {
     nodeInTemplate: NodeInTemplate,
   ): LocationWithOrder {
     return {
-      uri: URI.file(nodeInTemplate.templatePart.fileFullPath).toString(),
+      uri: URI.file(nodeInTemplate.partSection.fileFullPath).toString(),
       range: {
         start: {
           line: nodeInTemplate.node.startPosition.row,

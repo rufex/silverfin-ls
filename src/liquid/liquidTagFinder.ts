@@ -5,16 +5,16 @@ import {
 } from "./treeSitterLiquidProvider";
 import * as fs from "fs";
 import { TemplatePartsCollectionManager } from "../templates/templatePartsCollectionManager";
-import { TemplatePart } from "../templates/types";
+import { TemplatePartSection } from "../templates/types";
 
 export interface NodeInTemplate {
   node: SyntaxNode;
-  templatePart: TemplatePart;
+  partSection: TemplatePartSection;
   executionIndex: number; // Position in template execution order
 }
 
 interface TemplateMapDetails {
-  templateParts: TemplatePart[];
+  partSections: TemplatePartSection[];
   currentFileIndex: number;
 }
 
@@ -45,27 +45,27 @@ export class LiquidTagFinder {
       );
     }
 
-    const { templateParts, currentFileIndex } = templateDetails;
+    const { partSections, currentFileIndex } = templateDetails;
 
-    if (!templateParts || templateParts.length === 0) {
+    if (!partSections || partSections.length === 0) {
       throw new Error(
         `Template map is empty for URI: ${textDocumentUri}. ` +
-          "Cannot process template without parts.",
+          "Cannot process template without part sections.",
       );
     }
 
-    if (currentFileIndex === -1 || currentFileIndex >= templateParts.length) {
+    if (currentFileIndex === -1 || currentFileIndex >= partSections.length) {
       throw new Error(
         `Invalid current file index (${currentFileIndex}) for URI: ${textDocumentUri}. ` +
-          `Template has ${templateParts.length} parts.`,
+          `Template has ${partSections.length} part sections.`,
       );
     }
 
     this.logger.info(
-      `Template map loaded: ${templateParts.length} parts, current file at index ${currentFileIndex}`,
+      `Template map loaded: ${partSections.length} part sections, current file at index ${currentFileIndex}`,
     );
 
-    return { templateParts, currentFileIndex };
+    return { partSections, currentFileIndex };
   }
 
   /**
@@ -81,16 +81,16 @@ export class LiquidTagFinder {
   }
 
   /**
-   * Filter nodes that fall within a template part's line range.
+   * Filter nodes that fall within a part section's line range.
    */
   private filterNodesInRange(
     nodes: SyntaxNode[],
-    part: TemplatePart,
+    partSection: TemplatePartSection,
   ): SyntaxNode[] {
     return nodes.filter(
       (node) =>
-        node.startPosition.row >= part.startLine &&
-        node.endPosition.row <= part.endLine,
+        node.startPosition.row >= partSection.startLine &&
+        node.endPosition.row <= partSection.endLine,
     );
   }
 
@@ -102,7 +102,7 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { templateParts, currentFileIndex } =
+      const { partSections, currentFileIndex } =
         await this.getValidatedTemplateMap(
           textDocumentUri,
           currentRow,
@@ -112,26 +112,26 @@ export class LiquidTagFinder {
       const matchingNodes: NodeInTemplate[] = [];
 
       for (let i = 0; i <= currentFileIndex; i++) {
-        const part = templateParts[i];
-        const fileContent = this.readFileContent(part.fileFullPath);
+        const partSection = partSections[i];
+        const fileContent = this.readFileContent(partSection.fileFullPath);
         if (!fileContent) continue;
 
         const nodes = this.findNodesInText(fileContent, liquidKey, liquidTypes);
-        const nodesInRange = this.filterNodesInRange(nodes, part);
+        const nodesInRange = this.filterNodesInRange(nodes, partSection);
 
         if (i === currentFileIndex) {
           for (const node of nodesInRange) {
             if (node.startPosition.row < currentRow) {
               matchingNodes.push({
                 node,
-                templatePart: part,
+                partSection,
                 executionIndex: i,
               });
             }
           }
         } else {
           nodesInRange.forEach((node) =>
-            matchingNodes.push({ node, templatePart: part, executionIndex: i }),
+            matchingNodes.push({ node, partSection, executionIndex: i }),
           );
         }
       }
@@ -216,7 +216,7 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { templateParts, currentFileIndex } =
+      const { partSections, currentFileIndex } =
         await this.getValidatedTemplateMap(
           textDocumentUri,
           currentRow,
@@ -226,15 +226,15 @@ export class LiquidTagFinder {
       const matchingNodes: NodeInTemplate[] = [];
 
       for (let i = 0; i <= currentFileIndex; i++) {
-        const part = templateParts[i];
-        const fileContent = this.readFileContent(part.fileFullPath);
+        const partSection = partSections[i];
+        const fileContent = this.readFileContent(partSection.fileFullPath);
         if (!fileContent) continue;
 
         const nodes = this.findVariableDefinitionsInText(
           fileContent,
           variableName,
         );
-        const nodesInRange = this.filterNodesInRange(nodes, part);
+        const nodesInRange = this.filterNodesInRange(nodes, partSection);
 
         if (i === currentFileIndex) {
           const filteredNodes = this.filterDefinitionsForCurrentFile(
@@ -242,11 +242,11 @@ export class LiquidTagFinder {
             currentRow,
           );
           filteredNodes.forEach((node) =>
-            matchingNodes.push({ node, templatePart: part, executionIndex: i }),
+            matchingNodes.push({ node, partSection, executionIndex: i }),
           );
         } else {
           nodesInRange.forEach((node) =>
-            matchingNodes.push({ node, templatePart: part, executionIndex: i }),
+            matchingNodes.push({ node, partSection, executionIndex: i }),
           );
         }
       }
@@ -464,26 +464,26 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { templateParts, currentFileIndex } =
+      const { partSections, currentFileIndex } =
         await this.getValidatedTemplateMap(
           textDocumentUri,
           currentRow,
           workspaceRoot,
         );
 
-      const currentFilePart = templateParts[currentFileIndex];
-      if (!currentFilePart) {
+      const currentPartSection = partSections[currentFileIndex];
+      if (!currentPartSection) {
         throw new Error(
-          `Current file part is undefined at index ${currentFileIndex}. Template map may be corrupted.`,
+          `Current part section is undefined at index ${currentFileIndex}. Template map may be corrupted.`,
         );
       }
 
       this.logger.info(
-        `Searching for references in ${templateParts.length} template parts (current: ${currentFilePart.fileFullPath})`,
+        `Searching for references in ${partSections.length} part sections (current: ${currentPartSection.fileFullPath})`,
       );
 
       const currentFileContent = this.readFileContent(
-        currentFilePart.fileFullPath,
+        currentPartSection.fileFullPath,
       );
       if (!currentFileContent) {
         return null;
@@ -500,7 +500,7 @@ export class LiquidTagFinder {
       if (currentLoopContext) {
         return this.findLoopScopedReferences(
           currentFileContent,
-          currentFilePart,
+          currentPartSection,
           currentFileIndex,
           currentLoopContext,
           variableName,
@@ -508,7 +508,7 @@ export class LiquidTagFinder {
       }
 
       // Otherwise, find all references across template, excluding shadowed loop variables
-      return this.findGlobalScopedReferences(templateParts, variableName);
+      return this.findGlobalScopedReferences(partSections, variableName);
     } catch (error) {
       this.logger.error(`findAllVariableReferencesInScope failed: ${error}`);
       return null;
@@ -520,7 +520,7 @@ export class LiquidTagFinder {
    */
   private findLoopScopedReferences(
     fileContent: string,
-    templatePart: TemplatePart,
+    partSection: TemplatePartSection,
     executionIndex: number,
     loopNode: SyntaxNode,
     variableName: string,
@@ -533,7 +533,7 @@ export class LiquidTagFinder {
 
     for (const node of loopReferences) {
       if (this.isPositionInLoopScope(node.startPosition.row, loopNode)) {
-        matchingNodes.push({ node, templatePart, executionIndex });
+        matchingNodes.push({ node, partSection, executionIndex });
       }
     }
 
@@ -545,24 +545,24 @@ export class LiquidTagFinder {
 
   /**
    * Find references in global scope, excluding shadowed loop variables.
-   * Searches ALL template parts (not just those before current position).
+   * Searches ALL part sections (not just those before current position).
    */
   private findGlobalScopedReferences(
-    templateParts: TemplatePart[],
+    partSections: TemplatePartSection[],
     variableName: string,
   ): NodeInTemplate[] {
     const matchingNodes: NodeInTemplate[] = [];
 
-    for (let i = 0; i < templateParts.length; i++) {
-      const part = templateParts[i];
-      const fileContent = this.readFileContent(part.fileFullPath);
+    for (let i = 0; i < partSections.length; i++) {
+      const partSection = partSections[i];
+      const fileContent = this.readFileContent(partSection.fileFullPath);
       if (!fileContent) continue;
 
       const nodes = this.findVariableReferencesInText(
         fileContent,
         variableName,
       );
-      const nodesInRange = this.filterNodesInRange(nodes, part);
+      const nodesInRange = this.filterNodesInRange(nodes, partSection);
 
       // Filter out references inside loops that shadow this variable
       for (const node of nodesInRange) {
@@ -574,13 +574,13 @@ export class LiquidTagFinder {
 
         // Only include if not in a shadowing loop
         if (!loopContext) {
-          matchingNodes.push({ node, templatePart: part, executionIndex: i });
+          matchingNodes.push({ node, partSection, executionIndex: i });
         }
       }
     }
 
     this.logger.debug(
-      `Found ${matchingNodes.length} references for variable: ${variableName} across ${templateParts.length} template parts`,
+      `Found ${matchingNodes.length} references for variable: ${variableName} across ${partSections.length} part sections`,
     );
     return matchingNodes;
   }
@@ -735,7 +735,7 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { templateParts } = await this.getValidatedTemplateMap(
+      const { partSections } = await this.getValidatedTemplateMap(
         textDocumentUri,
         currentRow,
         workspaceRoot,
@@ -744,24 +744,24 @@ export class LiquidTagFinder {
       const matchingNodes: NodeInTemplate[] = [];
       const searchFor = "translation_expression";
 
-      // Search ALL template parts for translation references
-      for (let i = 0; i < templateParts.length; i++) {
-        const part = templateParts[i];
-        const fileContent = this.readFileContent(part.fileFullPath);
+      // Search ALL part sections for translation references
+      for (let i = 0; i < partSections.length; i++) {
+        const partSection = partSections[i];
+        const fileContent = this.readFileContent(partSection.fileFullPath);
         if (!fileContent) continue;
 
         const nodes = this.findNodesInText(fileContent, translationKey, [
           searchFor,
         ]);
-        const nodesInRange = this.filterNodesInRange(nodes, part);
+        const nodesInRange = this.filterNodesInRange(nodes, partSection);
 
         nodesInRange.forEach((node) =>
-          matchingNodes.push({ node, templatePart: part, executionIndex: i }),
+          matchingNodes.push({ node, partSection, executionIndex: i }),
         );
       }
 
       this.logger.debug(
-        `Found ${matchingNodes.length} references for translation key: ${translationKey} across ${templateParts.length} template parts`,
+        `Found ${matchingNodes.length} references for translation key: ${translationKey} across ${partSections.length} part sections`,
       );
       return matchingNodes;
     } catch (error) {

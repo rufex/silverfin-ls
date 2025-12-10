@@ -2,10 +2,7 @@ import { ReferenceProvider } from "../../src/lspCapabilities/referenceProvider";
 import { ReferenceParams } from "vscode-languageserver/node";
 import { URI } from "vscode-uri";
 import * as path from "path";
-import {
-  fixturesPath,
-  visitTemplate,
-} from "../helpers/templateTestHelpers";
+import { fixturesPath, visitTemplate } from "../helpers/templateTestHelpers";
 
 describe("ReferenceProvider - Variables", () => {
   const mainFilePath = path.join(

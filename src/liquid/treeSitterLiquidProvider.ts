@@ -7,7 +7,7 @@ export type TreeSitterParser = Parser;
 
 /**
  * Provides tree-sitter parsing for Liquid templates.
- * 
+ *
  * Note: This class CANNOT be a singleton. Tree-sitter Parser instances are not thread-safe
  * and cannot be used concurrently. Each class that needs parsing should create its own instance.
  */
@@ -29,7 +29,7 @@ export class TreeSitterLiquidProvider {
 
   /**
    * Parse liquid template text into a syntax tree.
-   * 
+   *
    * @param text The liquid template text to parse
    * @returns The parsed syntax tree, or null if parsing fails
    */

@@ -137,7 +137,7 @@ export class DefinitionProvider {
       // return all nodes
       const locations: Location[] = nodes.map((node) => {
         return {
-          uri: URI.file(node.templatePart.fileFullPath).toString(),
+          uri: URI.file(node.partSection.fileFullPath).toString(),
           range: {
             start: {
               line: node.node.startPosition.row,
@@ -185,7 +185,7 @@ export class DefinitionProvider {
     // Return all nodes
     const locations: Location[] = nodes.map((node) => {
       return {
-        uri: URI.file(node.templatePart.fileFullPath).toString(),
+        uri: URI.file(node.partSection.fileFullPath).toString(),
         range: {
           start: {
             line: node.node.startPosition.row,

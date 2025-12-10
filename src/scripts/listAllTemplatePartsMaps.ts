@@ -139,7 +139,7 @@ async function analyzeTemplate(templatePath: string, workspaceRoot: string) {
       };
     }
 
-    const parts = result.templateParts.map((part, index) => ({
+    const parts = result.partSections.map((part, index) => ({
       index,
       file: path.basename(part.fileFullPath),
       fullPath: part.fileFullPath,
@@ -154,7 +154,7 @@ async function analyzeTemplate(templatePath: string, workspaceRoot: string) {
       success: true,
       parts,
       currentIndex: result.currentFileIndex,
-      totalParts: result.templateParts.length,
+      totalParts: result.partSections.length,
     };
   } catch (error) {
     return {

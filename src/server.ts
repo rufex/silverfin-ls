@@ -166,7 +166,9 @@ export class LiquidLanguageServer {
 
     this.connection.onHover(async (params): Promise<Hover | null> => {
       try {
-        if (!(this.settings.hover?.enabled ?? DEFAULT_SETTINGS.hover!.enabled)) {
+        if (
+          !(this.settings.hover?.enabled ?? DEFAULT_SETTINGS.hover!.enabled)
+        ) {
           this.logger.debug("Hover is disabled in settings");
           return null;
         }
@@ -217,7 +219,9 @@ export class LiquidLanguageServer {
     this.connection.onReferences(
       async (params: ReferenceParams): Promise<Location[] | null> => {
         try {
-          this.logger.debug(`References request for: ${params.textDocument.uri}`);
+          this.logger.debug(
+            `References request for: ${params.textDocument.uri}`,
+          );
 
           // Track template on every request to handle buffer switching
           const tracker = TemplateTracker.getInstance();
@@ -240,9 +244,13 @@ export class LiquidLanguageServer {
     this.documents.onDidSave(async (change) => {
       const uri = change.document.uri;
       if (uri.endsWith(".liquid") && this.workspaceRoot) {
-        this.logger.debug(`Liquid file saved, regenerating template map: ${uri}`);
+        this.logger.debug(
+          `Liquid file saved, regenerating template map: ${uri}`,
+        );
         try {
-          const manager = TemplatePartsCollectionManager.getInstance(this.workspaceRoot);
+          const manager = TemplatePartsCollectionManager.getInstance(
+            this.workspaceRoot,
+          );
           await manager.regenerateFromUri(uri);
         } catch (error) {
           this.logger.error(`Failed to regenerate template map: ${error}`);

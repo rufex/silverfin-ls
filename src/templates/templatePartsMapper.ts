@@ -5,7 +5,7 @@ import { TreeSitterLiquidProvider } from "../liquid/treeSitterLiquidProvider";
 import { IncludeParser } from "../liquid/includeParser";
 import {
   TemplateTypes,
-  TemplateParts,
+  TemplatePartSections,
   TemplatePartType,
   TemplateDirectories,
 } from "./types";
@@ -28,7 +28,7 @@ import { IncludeTagInfo } from "../liquid/types";
  *   { type: 'main', name: 'main', startLine: 11, endLine: 16 },
  *   { type: 'sharedPart', name: 'footer', startLine: 1, endLine: 12 },
  *   { type: 'main', name: 'main', startLine: 17, endLine: 25 },
- *  ]
+ * ]
  */
 export class TemplatePartsMapper {
   private logger: Logger = new Logger("TemplatePartsMapper");
@@ -42,8 +42,8 @@ export class TemplatePartsMapper {
   public generateTemplateMap(
     templateType: TemplateTypes,
     templateName: string,
-  ): TemplateParts | null {
-    const orderedTemplateParts: TemplateParts = [];
+  ): TemplatePartSections | null {
+    const orderedPartSections: TemplatePartSections = [];
 
     const templateDir = path.join(
       this.workspaceRoot,
@@ -77,22 +77,22 @@ export class TemplatePartsMapper {
       "main",
       "main",
       templateDir,
-      orderedTemplateParts,
+      orderedPartSections,
       processedFiles,
     );
 
-    this.logger.debug(JSON.stringify(orderedTemplateParts, null, 2));
+    this.logger.debug(JSON.stringify(orderedPartSections, null, 2));
 
-    return orderedTemplateParts;
+    return orderedPartSections;
   }
 
   /**
-   * Recursively processes a template file and its includes to build ordered template parts
+   * Recursively processes a template file and its includes to build ordered part sections
    * @param filePath The path to the template file to process
    * @param partType The type of this part (main, textPart, sharedPart)
    * @param partName The name of this part
    * @param templateDir The root template directory
-   * @param orderedTemplateParts Array to accumulate template parts in order
+   * @param orderedPartSections Array to accumulate part sections in order
    * @param processedFiles Set to track processed files and prevent circular includes
    */
   private processLiquidFileRecursively(
@@ -100,7 +100,7 @@ export class TemplatePartsMapper {
     partType: TemplatePartType,
     partName: string,
     templateDir: string,
-    orderedTemplateParts: TemplateParts,
+    orderedPartSections: TemplatePartSections,
     processedFiles: Set<string>,
   ): void {
     if (processedFiles.has(filePath)) {
@@ -122,14 +122,14 @@ export class TemplatePartsMapper {
     const transitionParser = new IncludeParser();
     const includeTags = transitionParser.findAll(fileContent);
 
-    // Process includes and create template parts in order
+    // Process includes and create part sections in order
     let currentStartLine = 0; // 0-based indexing
 
     for (const includeTag of includeTags) {
       const includeLineNumber = includeTag.lineNumber; // Already 0-based from TreeSitter
 
       if (currentStartLine < includeLineNumber) {
-        orderedTemplateParts.push({
+        orderedPartSections.push({
           fileFullPath: filePath,
           type: partType,
           name: partName,
@@ -149,7 +149,7 @@ export class TemplatePartsMapper {
           includeTag.type,
           includeTag.name,
           templateDir,
-          orderedTemplateParts,
+          orderedPartSections,
           processedFiles,
         );
       }
@@ -160,7 +160,7 @@ export class TemplatePartsMapper {
 
     // Add the remaining part of the file (after last include or whole file if no includes)
     if (currentStartLine < totalLines) {
-      orderedTemplateParts.push({
+      orderedPartSections.push({
         fileFullPath: filePath,
         type: partType,
         name: partName,

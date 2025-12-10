@@ -5,7 +5,7 @@ import { parseTemplateUri } from "../utils/templateUriParser";
 import { TemplateTracker } from "./templateTracker";
 import {
   TemplateTypes,
-  TemplateParts,
+  TemplatePartSections,
   TemplateKey,
   TemplateCollection,
 } from "./types";
@@ -23,7 +23,7 @@ import {
  *
  * @example
  * const manager = TemplatePartsCollectionManager.getInstance(workspaceRoot);
- * const parts = await manager.getMap('reconciliationText', 'my_template');
+ * const partSections = await manager.getMap('reconciliationText', 'my_template');
  * await manager.loadMap('accountTemplate', 'invoice_template');
  */
 export class TemplatePartsCollectionManager {
@@ -57,37 +57,37 @@ export class TemplatePartsCollectionManager {
   }
 
   /**
-   * Loads or refreshes a template's parts mapping.
+   * Loads or refreshes a template's part sections mapping.
    * If the template already exists in the collection, it will be refreshed.
    * @param templateType The type of template to load
    * @param templateName The name of the template to load
-   * @returns Promise resolving to the template parts or null if loading failed
+   * @returns Promise resolving to the template part sections or null if loading failed
    */
   public async loadMap(
     templateType: TemplateTypes,
     templateName: string,
-  ): Promise<TemplateParts | null> {
+  ): Promise<TemplatePartSections | null> {
     const templateKey = this.generateTemplateKey(templateType, templateName);
 
     this.logger.debug(`Loading or refreshing template: ${templateKey}`);
 
     try {
-      const templateParts = this.templatePartsMapper.generateTemplateMap(
+      const partSections = this.templatePartsMapper.generateTemplateMap(
         templateType,
         templateName,
       );
 
-      if (templateParts) {
-        this.loadedMaps.set(templateKey, templateParts);
+      if (partSections) {
+        this.loadedMaps.set(templateKey, partSections);
         this.logger.debug(
-          `Successfully loaded template: ${templateKey} with ${templateParts.length} parts`,
+          `Successfully loaded template: ${templateKey} with ${partSections.length} part sections`,
         );
       } else {
         this.logger.warn(`Failed to load template: ${templateKey}`);
         this.loadedMaps.delete(templateKey);
       }
 
-      return templateParts;
+      return partSections;
     } catch (error) {
       this.logger.error(`Error loading template ${templateKey}: ${error}`);
       this.loadedMaps.delete(templateKey);
@@ -96,24 +96,24 @@ export class TemplatePartsCollectionManager {
   }
 
   /**
-   * Gets a template's parts mapping.
+   * Gets a template's part sections mapping.
    * If the template is not in the collection, it will be loaded automatically.
    * @param templateType The type of template to get
    * @param templateName The name of the template to get
-   * @returns Promise resolving to the template parts or null if not found/loadable
+   * @returns Promise resolving to the template part sections or null if not found/loadable
    */
   public async getMap(
     templateType: TemplateTypes,
     templateName: string,
-  ): Promise<TemplateParts | null> {
+  ): Promise<TemplatePartSections | null> {
     const templateKey = this.generateTemplateKey(templateType, templateName);
 
     if (this.loadedMaps.has(templateKey)) {
-      const loadedParts = this.loadedMaps.get(templateKey)!;
+      const loadedPartSections = this.loadedMaps.get(templateKey)!;
       this.logger.debug(
-        `Retrieved cached template: ${templateKey} with ${loadedParts.length} parts`,
+        `Retrieved cached template: ${templateKey} with ${loadedPartSections.length} part sections`,
       );
-      return loadedParts;
+      return loadedPartSections;
     }
 
     // Load if not in collection
@@ -122,17 +122,17 @@ export class TemplatePartsCollectionManager {
   }
 
   /**
-   * Gets a template's parts mapping based on a document URI.
+   * Gets a template's part sections mapping based on a document URI.
    * The URI is parsed to extract the template type and name.
    * If the template is not in the collection, it will be loaded automatically.
    * @param textDocumentUri The document URI containing template info
-   * @returns Promise resolving to the template parts or null if not found/loadable
+   * @returns Promise resolving to the template part sections or null if not found/loadable
    */
   public async getMapAndIndexFromUri(
     textDocumentUri: string,
     currentLine: number,
   ): Promise<{
-    templateParts: TemplateParts;
+    partSections: TemplatePartSections;
     currentFileIndex: number;
   } | null> {
     const templateUriInfo = parseTemplateUri(textDocumentUri);
@@ -163,20 +163,20 @@ export class TemplatePartsCollectionManager {
       templateName = lastVisited.handle;
     }
 
-    const parts = await this.getMap(templateType, templateName);
-    if (!parts) {
+    const partSections = await this.getMap(templateType, templateName);
+    if (!partSections) {
       this.logger.warn(
-        `No template parts found for URI: ${textDocumentUri} (type: ${templateType}, name: ${templateName})`,
+        `No template part sections found for URI: ${textDocumentUri} (type: ${templateType}, name: ${templateName})`,
       );
       return null;
     }
 
     const index = this.findCurrentFileIndex(
-      parts,
+      partSections,
       textDocumentUri,
       currentLine,
     );
-    return { templateParts: parts, currentFileIndex: index };
+    return { partSections, currentFileIndex: index };
   }
 
   /**
@@ -230,26 +230,26 @@ export class TemplatePartsCollectionManager {
   }
 
   /**
-   * Finds the index of the current file in the template parts array.
+   * Finds the index of the current file in the part sections array.
    * If the exact file and line match is not found, returns the last matching file index.
-   * @param templateParts The array of template parts
+   * @param partSections The array of part sections
    * @param currentFilePath The full path of the current file
    * @param currentLine The current line number (0-based)
-   * @returns The index of the current file in the template parts array, or -1 if not found
+   * @returns The index of the current file in the part sections array, or -1 if not found
    */
   private findCurrentFileIndex(
-    templateParts: TemplateParts,
+    partSections: TemplatePartSections,
     textDocumentUri: string,
     currentLine: number,
   ): number {
     const currentFilePath = URI.parse(textDocumentUri).fsPath;
     let lastMatchingIndex = -1;
 
-    for (let i = 0; i < templateParts.length; i++) {
-      if (templateParts[i].fileFullPath === currentFilePath) {
+    for (let i = 0; i < partSections.length; i++) {
+      if (partSections[i].fileFullPath === currentFilePath) {
         if (
-          currentLine >= templateParts[i].startLine &&
-          currentLine <= templateParts[i].endLine
+          currentLine >= partSections[i].startLine &&
+          currentLine <= partSections[i].endLine
         ) {
           return i;
         }

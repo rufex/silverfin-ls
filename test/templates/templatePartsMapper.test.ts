@@ -1,5 +1,5 @@
 import { TemplatePartsMapper } from "../../src/templates/templatePartsMapper";
-import { TemplateParts } from "../../src/templates/types";
+import { TemplatePartSections } from "../../src/templates/types";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -23,7 +23,7 @@ interface ExpectedPart {
 }
 
 function validateTemplateParts(
-  result: TemplateParts | null,
+  result: TemplatePartSections | null,
   expectedParts: ExpectedPart[],
   templateName: string,
 ) {

@@ -23,11 +23,11 @@ export function visitTemplate(
 /**
  * Gets the full path for a template file.
  * Works for all template types including shared parts.
- * 
+ *
  * @example
- * getTemplatePath('reconciliationText', 'my_template') 
+ * getTemplatePath('reconciliationText', 'my_template')
  * // => 'reconciliation_texts/my_template/main.liquid'
- * 
+ *
  * getTemplatePath('sharedPart', 'shared_part_1')
  * // => 'shared_parts/shared_part_1/shared_part_1.liquid'
  */
@@ -35,9 +35,8 @@ export function getTemplatePath(
   templateType: string,
   templateName: string,
 ): string {
-  const fileName = templateType === "sharedPart" 
-    ? `${templateName}.liquid` 
-    : "main.liquid";
-  
+  const fileName =
+    templateType === "sharedPart" ? `${templateName}.liquid` : "main.liquid";
+
   return path.join(fixturesPath, `${templateType}/${templateName}/${fileName}`);
 }
