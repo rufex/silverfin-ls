@@ -5,22 +5,24 @@ import {
 } from "./treeSitterLiquidProvider";
 import * as fs from "fs";
 import { TemplatePartsCollectionManager } from "../templates/templatePartsCollectionManager";
-import { TemplatePartSection } from "../templates/types";
+import {
+  TemplatePartSection,
+  TemplateMap,
+  TemplateMapContext,
+} from "../templates/types";
+import { TemplateQueryService, NodeInTemplate } from "./templateQueryService";
 
-export interface NodeInTemplate {
-  node: SyntaxNode;
-  partSection: TemplatePartSection;
-  executionIndex: number; // Position in template execution order
-}
+export { NodeInTemplate };
 
-interface TemplateMapDetails {
-  partSections: TemplatePartSection[];
-  currentFileIndex: number;
-}
-
+/**
+ * High-level service for finding liquid tags, variables, and translations in templates.
+ * Uses TemplateQueryService for optimized tree-sitter parsing and querying.
+ * Handles complex logic like variable scoping and loop shadowing.
+ */
 export class LiquidTagFinder {
   private logger = new Logger("LiquidTagFinder");
   private parser = new TreeSitterLiquidProvider();
+  private queryService = new TemplateQueryService();
 
   /**
    * Get and validate template map for the given URI and row.
@@ -30,46 +32,50 @@ export class LiquidTagFinder {
     textDocumentUri: string,
     currentRow: number,
     workspaceRoot: string,
-  ): Promise<TemplateMapDetails> {
+  ): Promise<TemplateMapContext> {
     const templateManager =
       TemplatePartsCollectionManager.getInstance(workspaceRoot);
-    const templateDetails = await templateManager.getMapAndIndexFromUri(
+    const templateContext = await templateManager.getMapAndIndexFromUri(
       textDocumentUri,
       currentRow,
     );
 
-    if (!templateDetails) {
+    if (!templateContext) {
       throw new Error(
         `No template map found for URI: ${textDocumentUri}. ` +
           "The file may not be part of a recognized template or the template structure could not be determined.",
       );
     }
 
-    const { partSections, currentFileIndex } = templateDetails;
+    const { templateMap, currentFileIndex } = templateContext;
 
-    if (!partSections || partSections.length === 0) {
+    if (!templateMap.partSections || templateMap.partSections.length === 0) {
       throw new Error(
         `Template map is empty for URI: ${textDocumentUri}. ` +
           "Cannot process template without part sections.",
       );
     }
 
-    if (currentFileIndex === -1 || currentFileIndex >= partSections.length) {
+    if (
+      currentFileIndex === -1 ||
+      currentFileIndex >= templateMap.partSections.length
+    ) {
       throw new Error(
         `Invalid current file index (${currentFileIndex}) for URI: ${textDocumentUri}. ` +
-          `Template has ${partSections.length} part sections.`,
+          `Template has ${templateMap.partSections.length} part sections.`,
       );
     }
 
     this.logger.info(
-      `Template map loaded: ${partSections.length} part sections, current file at index ${currentFileIndex}`,
+      `Template map loaded: ${templateMap.partSections.length} part sections, ${templateMap.involvedFiles.length} unique files, current file at index ${currentFileIndex}`,
     );
 
-    return { partSections, currentFileIndex };
+    return templateContext;
   }
 
   /**
    * Safely read file content with error handling.
+   * Used for loop context checking which needs file content.
    */
   private readFileContent(filePath: string): string | null {
     try {
@@ -81,19 +87,9 @@ export class LiquidTagFinder {
   }
 
   /**
-   * Filter nodes that fall within a part section's line range.
+   * Find all nodes of specific types before a position.
+   * Uses optimized query service (parses 20 files instead of 222 sections).
    */
-  private filterNodesInRange(
-    nodes: SyntaxNode[],
-    partSection: TemplatePartSection,
-  ): SyntaxNode[] {
-    return nodes.filter(
-      (node) =>
-        node.startPosition.row >= partSection.startLine &&
-        node.endPosition.row <= partSection.endLine,
-    );
-  }
-
   public async findAllNodesBeforePosition(
     textDocumentUri: string,
     currentRow: number,
@@ -102,113 +98,30 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { partSections, currentFileIndex } =
+      const { templateMap, currentFileIndex } =
         await this.getValidatedTemplateMap(
           textDocumentUri,
           currentRow,
           workspaceRoot,
         );
 
-      const matchingNodes: NodeInTemplate[] = [];
-
-      for (let i = 0; i <= currentFileIndex; i++) {
-        const partSection = partSections[i];
-        const fileContent = this.readFileContent(partSection.fileFullPath);
-        if (!fileContent) continue;
-
-        const nodes = this.findNodesInText(fileContent, liquidKey, liquidTypes);
-        const nodesInRange = this.filterNodesInRange(nodes, partSection);
-
-        if (i === currentFileIndex) {
-          for (const node of nodesInRange) {
-            if (node.startPosition.row < currentRow) {
-              matchingNodes.push({
-                node,
-                partSection,
-                executionIndex: i,
-              });
-            }
-          }
-        } else {
-          nodesInRange.forEach((node) =>
-            matchingNodes.push({ node, partSection, executionIndex: i }),
-          );
-        }
-      }
-
-      return matchingNodes;
+      return this.queryService.queryNodesBeforePosition(
+        templateMap,
+        currentFileIndex,
+        liquidKey,
+        liquidTypes,
+        currentRow,
+      );
     } catch (error) {
       this.logger.error(`findAllNodesBeforePosition failed: ${error}`);
       return null;
     }
   }
 
-  private findNodesInText(
-    text: string,
-    liquidKey: string,
-    liquidTypes: string[],
-  ): SyntaxNode[] {
-    const tree = this.parser.parseTree(text);
-    if (!tree) {
-      return [];
-    }
-
-    const keyKey = "key";
-    const matchingNodes: SyntaxNode[] = [];
-
-    try {
-      for (const liquidType of liquidTypes) {
-        // Example query:
-        // (translation_statement
-        //  key: (string) @key
-        //  )
-        //  (assignment_statement
-        //  variable_name: (string) @key
-        //  )
-        const queryString = `(${liquidType}
-          ${keyKey}: (string) @${keyKey}
-        )`;
-
-        const matches = this.parser.queryTree(queryString, tree);
-
-        for (const match of matches) {
-          for (const capture of match.captures) {
-            if (capture.name === "key") {
-              const captureKey = this.extractKey(capture.node);
-              if (captureKey && captureKey === liquidKey) {
-                let parent = capture.node.parent;
-                while (parent && parent.type !== liquidType) {
-                  parent = parent.parent;
-                }
-                if (parent) {
-                  matchingNodes.push(parent);
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error querying for types [${liquidTypes.join(", ")}]: ${error}`,
-      );
-    }
-
-    return matchingNodes;
-  }
-
-  private extractKey(stringNode: SyntaxNode): string | null {
-    if (stringNode.type !== "string") {
-      this.logger.warn(`Expected string node, got ${stringNode.type}`);
-      return null;
-    }
-    const text = stringNode.text.trim();
-    if (!text) {
-      return null;
-    }
-    return text.replace(/^['"]|['"]$/g, "");
-  }
-
+  /**
+   * Find all variable definitions before a position.
+   * Handles loop variable scoping (loop variables shadow outer variables).
+   */
   public async findAllVariableDefinitionsBeforePosition(
     textDocumentUri: string,
     currentRow: number,
@@ -216,42 +129,42 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { partSections, currentFileIndex } =
+      const { templateMap, currentFileIndex } =
         await this.getValidatedTemplateMap(
           textDocumentUri,
           currentRow,
           workspaceRoot,
         );
 
-      const matchingNodes: NodeInTemplate[] = [];
-
-      for (let i = 0; i <= currentFileIndex; i++) {
-        const partSection = partSections[i];
-        const fileContent = this.readFileContent(partSection.fileFullPath);
-        if (!fileContent) continue;
-
-        const nodes = this.findVariableDefinitionsInText(
-          fileContent,
+      const allDefinitions =
+        this.queryService.queryVariableDefinitionsBeforePosition(
+          templateMap,
+          currentFileIndex,
           variableName,
+          currentRow,
         );
-        const nodesInRange = this.filterNodesInRange(nodes, partSection);
 
-        if (i === currentFileIndex) {
-          const filteredNodes = this.filterDefinitionsForCurrentFile(
-            nodesInRange,
+      // Handle loop variable scoping in current file
+      const currentSection = templateMap.partSections[currentFileIndex];
+      const definitionsInCurrentSection = allDefinitions.filter(
+        (def) => def.executionIndex === currentFileIndex,
+      );
+
+      if (definitionsInCurrentSection.length > 0) {
+        const fileContent = this.readFileContent(currentSection.fileFullPath);
+        if (fileContent) {
+          return this.filterDefinitionsForCurrentFile(
+            definitionsInCurrentSection.map((d) => d.node),
             currentRow,
-          );
-          filteredNodes.forEach((node) =>
-            matchingNodes.push({ node, partSection, executionIndex: i }),
-          );
-        } else {
-          nodesInRange.forEach((node) =>
-            matchingNodes.push({ node, partSection, executionIndex: i }),
+            currentSection,
+            allDefinitions.filter(
+              (def) => def.executionIndex < currentFileIndex,
+            ),
           );
         }
       }
 
-      return matchingNodes;
+      return allDefinitions;
     } catch (error) {
       this.logger.error(
         `findAllVariableDefinitionsBeforePosition failed: ${error}`,
@@ -265,10 +178,12 @@ export class LiquidTagFinder {
    * Loop variables shadow outer variables with the same name.
    */
   private filterDefinitionsForCurrentFile(
-    nodes: SyntaxNode[],
+    nodesInCurrentSection: SyntaxNode[],
     currentRow: number,
-  ): SyntaxNode[] {
-    const beforeCurrentRow = nodes.filter(
+    currentSection: TemplatePartSection,
+    previousDefinitions: NodeInTemplate[],
+  ): NodeInTemplate[] {
+    const beforeCurrentRow = nodesInCurrentSection.filter(
       (node) => node.startPosition.row < currentRow,
     );
 
@@ -286,135 +201,41 @@ export class LiquidTagFinder {
 
     // If a loop iterator is in scope, return only that (it shadows outer variables)
     if (loopIteratorInScope) {
-      return [loopIteratorInScope];
+      return [
+        {
+          node: loopIteratorInScope,
+          partSection: currentSection,
+          executionIndex: previousDefinitions.length,
+        },
+      ];
     }
 
     // Filter out loop iterators that are not in scope
-    // (they shouldn't be visible outside their loop)
-    return beforeCurrentRow.filter((node) => {
+    const filteredCurrentSection = beforeCurrentRow.filter((node) => {
       if (this.isForLoopIterator(node)) {
         const loopParent = this.findForLoopParent(node);
-        // Only include if the loop is still in scope
         return loopParent && this.isPositionInLoopScope(currentRow, loopParent);
       }
-      return true; // Include non-loop definitions
+      return true;
     });
-  }
 
-  private findVariableDefinitionsInText(
-    text: string,
-    variableName: string,
-  ): SyntaxNode[] {
-    const tree = this.parser.parseTree(text);
-    if (!tree) {
-      return [];
-    }
+    // Combine with previous definitions
+    const result = [...previousDefinitions];
+    filteredCurrentSection.forEach((node) => {
+      result.push({
+        node,
+        partSection: currentSection,
+        executionIndex: previousDefinitions.length,
+      });
+    });
 
-    const matchingNodes: SyntaxNode[] = [];
-
-    // Define the different statement types and their field names
-    const statementConfigs = [
-      {
-        type: "assignment_statement",
-        field: "variable_name",
-        supportsDeferred: true,
-      },
-      { type: "capture_statement", field: "variable", supportsDeferred: true },
-      { type: "for_loop_statement", field: "item", supportsDeferred: false },
-    ];
-
-    try {
-      for (const config of statementConfigs) {
-        // Query for identifiers directly in the field
-        const identifierQueryString = `(${config.type}
-          ${config.field}: (identifier) @var_name
-        )`;
-
-        const identifierMatches = this.parser.queryTree(
-          identifierQueryString,
-          tree,
-        );
-
-        let matches = identifierMatches;
-
-        // Only query for deferred variables if this field supports them
-        if (config.supportsDeferred) {
-          // Query for deferred variables in the field
-          // (deferred_variable key: (identifier))
-          const deferredQueryString = `(${config.type}
-            ${config.field}: (deferred_variable
-              key: (identifier) @var_name
-            )
-          )`;
-
-          const deferredMatches = this.parser.queryTree(
-            deferredQueryString,
-            tree,
-          );
-
-          // Combine both match sets
-          matches = [...identifierMatches, ...deferredMatches];
-        }
-
-        for (const match of matches) {
-          for (const capture of match.captures) {
-            if (capture.name === "var_name") {
-              const capturedName = capture.node.text;
-              if (capturedName === variableName) {
-                // Check if this identifier is inside a deferred_variable
-                const immediateParent = capture.node.parent;
-                const isDeferredVariable =
-                  immediateParent &&
-                  immediateParent.type === "deferred_variable";
-
-                if (isDeferredVariable) {
-                  // For deferred variables, return the deferred_variable node itself
-                  // This gives us the position of [var] rather than just var
-                  matchingNodes.push(immediateParent);
-                } else {
-                  // For regular identifiers, find the parent statement
-                  let parent = capture.node.parent;
-                  while (parent && parent.type !== config.type) {
-                    parent = parent.parent;
-                  }
-                  if (parent) {
-                    // Find the statement keyword node (assign, capture, for, etc.)
-                    // to get a better position instead of the statement start which may include whitespace
-                    let keywordNode: SyntaxNode | null = null;
-                    for (let i = 0; i < parent.childCount; i++) {
-                      const child = parent.child(i);
-                      if (
-                        child &&
-                        (child.type === "assign" ||
-                          child.type === "capture" ||
-                          child.type === "for")
-                      ) {
-                        keywordNode = child;
-                        break;
-                      }
-                    }
-                    // Use the keyword node if found, otherwise use the parent
-                    matchingNodes.push(keywordNode || parent);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.error(`Error querying for variable definitions: ${error}`);
-    }
-
-    return matchingNodes;
+    return result;
   }
 
   /**
-   * Checks if a node is a for loop iterator variable definition (the 'item' in 'for item in items')
+   * Checks if a node is a for loop iterator variable definition.
    */
   private isForLoopIterator(node: SyntaxNode): boolean {
-    // Check if node's parent is a for_loop_statement
-    // by traversing up the tree
     let current: SyntaxNode | null = node;
     while (current) {
       if (current.type === "for_loop_statement") {
@@ -426,7 +247,7 @@ export class LiquidTagFinder {
   }
 
   /**
-   * Finds the for_loop_statement parent node for a given node
+   * Finds the for_loop_statement parent node for a given node.
    */
   private findForLoopParent(node: SyntaxNode): SyntaxNode | null {
     let current: SyntaxNode | null = node;
@@ -440,8 +261,7 @@ export class LiquidTagFinder {
   }
 
   /**
-   * Checks if a position is within the scope of a for loop
-   * (between the loop start and endfor)
+   * Checks if a position is within the scope of a for loop.
    */
   private isPositionInLoopScope(
     position: number,
@@ -454,8 +274,7 @@ export class LiquidTagFinder {
 
   /**
    * Find all variable references across the entire template.
-   * Note: This searches ALL template parts, not just those before the current position,
-   * because references can occur anywhere after a variable is defined.
+   * Handles loop variable scoping - loop variables are scoped to their loop.
    */
   public async findAllVariableReferencesInScope(
     textDocumentUri: string,
@@ -464,14 +283,14 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { partSections, currentFileIndex } =
+      const { templateMap, currentFileIndex } =
         await this.getValidatedTemplateMap(
           textDocumentUri,
           currentRow,
           workspaceRoot,
         );
 
-      const currentPartSection = partSections[currentFileIndex];
+      const currentPartSection = templateMap.partSections[currentFileIndex];
       if (!currentPartSection) {
         throw new Error(
           `Current part section is undefined at index ${currentFileIndex}. Template map may be corrupted.`,
@@ -479,7 +298,7 @@ export class LiquidTagFinder {
       }
 
       this.logger.info(
-        `Searching for references in ${partSections.length} part sections (current: ${currentPartSection.fileFullPath})`,
+        `Searching for references in ${templateMap.partSections.length} part sections (current: ${currentPartSection.fileFullPath})`,
       );
 
       const currentFileContent = this.readFileContent(
@@ -499,8 +318,7 @@ export class LiquidTagFinder {
       // If in a loop scope with this variable, only find references in that loop
       if (currentLoopContext) {
         return this.findLoopScopedReferences(
-          currentFileContent,
-          currentPartSection,
+          templateMap,
           currentFileIndex,
           currentLoopContext,
           variableName,
@@ -508,7 +326,7 @@ export class LiquidTagFinder {
       }
 
       // Otherwise, find all references across template, excluding shadowed loop variables
-      return this.findGlobalScopedReferences(partSections, variableName);
+      return this.findGlobalScopedReferences(templateMap, variableName);
     } catch (error) {
       this.logger.error(`findAllVariableReferencesInScope failed: ${error}`);
       return null;
@@ -519,21 +337,26 @@ export class LiquidTagFinder {
    * Find references within a specific loop scope.
    */
   private findLoopScopedReferences(
-    fileContent: string,
-    partSection: TemplatePartSection,
+    templateMap: TemplateMap,
     executionIndex: number,
     loopNode: SyntaxNode,
     variableName: string,
   ): NodeInTemplate[] {
     const matchingNodes: NodeInTemplate[] = [];
-    const loopReferences = this.findVariableReferencesInText(
-      fileContent,
+
+    // Query all references from the service
+    const allReferences = this.queryService.queryAllVariableReferences(
+      templateMap,
       variableName,
     );
 
-    for (const node of loopReferences) {
-      if (this.isPositionInLoopScope(node.startPosition.row, loopNode)) {
-        matchingNodes.push({ node, partSection, executionIndex });
+    // Filter to only those in the current section and within loop scope
+    for (const ref of allReferences) {
+      if (
+        ref.executionIndex === executionIndex &&
+        this.isPositionInLoopScope(ref.node.startPosition.row, loopNode)
+      ) {
+        matchingNodes.push(ref);
       }
     }
 
@@ -545,48 +368,49 @@ export class LiquidTagFinder {
 
   /**
    * Find references in global scope, excluding shadowed loop variables.
-   * Searches ALL part sections (not just those before current position).
+   * Uses query service for optimized parsing.
    */
   private findGlobalScopedReferences(
-    partSections: TemplatePartSection[],
+    templateMap: TemplateMap,
     variableName: string,
   ): NodeInTemplate[] {
-    const matchingNodes: NodeInTemplate[] = [];
+    // Get all references from the service (optimized: parses each file once)
+    const allReferences = this.queryService.queryAllVariableReferences(
+      templateMap,
+      variableName,
+    );
 
-    for (let i = 0; i < partSections.length; i++) {
-      const partSection = partSections[i];
+    // Filter out references inside loops that shadow this variable
+    const result: NodeInTemplate[] = [];
+
+    for (const ref of allReferences) {
+      const partSection = ref.partSection;
       const fileContent = this.readFileContent(partSection.fileFullPath);
-      if (!fileContent) continue;
 
-      const nodes = this.findVariableReferencesInText(
+      if (!fileContent) {
+        continue;
+      }
+
+      const loopContext = this.findLoopContext(
         fileContent,
+        ref.node.startPosition.row,
         variableName,
       );
-      const nodesInRange = this.filterNodesInRange(nodes, partSection);
 
-      // Filter out references inside loops that shadow this variable
-      for (const node of nodesInRange) {
-        const loopContext = this.findLoopContext(
-          fileContent,
-          node.startPosition.row,
-          variableName,
-        );
-
-        // Only include if not in a shadowing loop
-        if (!loopContext) {
-          matchingNodes.push({ node, partSection, executionIndex: i });
-        }
+      // Only include if not in a shadowing loop
+      if (!loopContext) {
+        result.push(ref);
       }
     }
 
     this.logger.debug(
-      `Found ${matchingNodes.length} references for variable: ${variableName} across ${partSections.length} part sections`,
+      `Found ${result.length} references for variable: ${variableName} across ${templateMap.partSections.length} part sections`,
     );
-    return matchingNodes;
+    return result;
   }
 
   /**
-   * Find if the current position is inside a for loop that defines a variable with the given name
+   * Find if the current position is inside a for loop that defines a variable with the given name.
    */
   private findLoopContext(
     text: string,
@@ -599,7 +423,6 @@ export class LiquidTagFinder {
     }
 
     try {
-      // Query for for loops
       const queryString = "(for_loop_statement) @loop";
       const matches = this.parser.queryTree(queryString, tree);
 
@@ -626,108 +449,10 @@ export class LiquidTagFinder {
     return null;
   }
 
-  private findVariableReferencesInText(
-    text: string,
-    variableName: string,
-  ): SyntaxNode[] {
-    const tree = this.parser.parseTree(text);
-    if (!tree) {
-      return [];
-    }
-
-    const matchingNodes: SyntaxNode[] = [];
-
-    try {
-      const queryString = "(identifier) @var";
-      const matches = this.parser.queryTree(queryString, tree);
-
-      for (const match of matches) {
-        for (const capture of match.captures) {
-          if (capture.name === "var" && capture.node.text === variableName) {
-            if (this.isVariableReference(capture.node)) {
-              matchingNodes.push(capture.node);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.error(`Error querying for variable references: ${error}`);
-    }
-
-    return matchingNodes;
-  }
-
   /**
-   * Determines if an identifier node is a variable reference (not a definition).
-   *
-   * Context analysis:
-   * - References: {{ var }}, {% assign x = var %}, {% if var %}, etc.
-   * - Definitions: {% assign var = ... %}, {% capture var %}, {% for var in ... %}
-   *
-   * @param identifierNode - The identifier node to check
-   * @returns true if the identifier is a variable reference, false if it's a definition or other use
+   * Find all translation references across the entire template.
+   * Uses query service for optimized parsing.
    */
-  private isVariableReference(identifierNode: SyntaxNode): boolean {
-    if (identifierNode.type !== "identifier") {
-      return false;
-    }
-
-    const parent = identifierNode.parent;
-    if (!parent) {
-      return false;
-    }
-
-    let fieldName: string | null = null;
-    for (let i = 0; i < parent.childCount; i++) {
-      if (parent.child(i) === identifierNode) {
-        fieldName = parent.fieldNameForChild(i);
-        break;
-      }
-    }
-
-    switch (parent.type) {
-      case "program":
-      case "block":
-        return true;
-
-      case "assignment_statement":
-        return fieldName === "value";
-
-      case "capture_statement":
-        return false;
-
-      case "for_loop_statement":
-        return fieldName === "iterator";
-
-      case "if_statement":
-      case "unless_statement":
-      case "elsif_clause":
-        return fieldName === "condition";
-
-      case "push_statement":
-      case "pop_statement":
-        return fieldName === "array" || fieldName === "item";
-
-      case "filter":
-        return fieldName === "body";
-
-      case "argument_list":
-        return true;
-
-      case "predicate":
-        return fieldName === "left" || fieldName === "right";
-
-      case "translation_expression":
-        return fieldName === "key";
-
-      case "deferred_variable":
-        return fieldName === "key";
-
-      default:
-        return false;
-    }
-  }
-
   public async findAllTranslationReferences(
     textDocumentUri: string,
     currentRow: number,
@@ -735,35 +460,16 @@ export class LiquidTagFinder {
     workspaceRoot: string,
   ): Promise<NodeInTemplate[] | null> {
     try {
-      const { partSections } = await this.getValidatedTemplateMap(
+      const { templateMap } = await this.getValidatedTemplateMap(
         textDocumentUri,
         currentRow,
         workspaceRoot,
       );
 
-      const matchingNodes: NodeInTemplate[] = [];
-      const searchFor = "translation_expression";
-
-      // Search ALL part sections for translation references
-      for (let i = 0; i < partSections.length; i++) {
-        const partSection = partSections[i];
-        const fileContent = this.readFileContent(partSection.fileFullPath);
-        if (!fileContent) continue;
-
-        const nodes = this.findNodesInText(fileContent, translationKey, [
-          searchFor,
-        ]);
-        const nodesInRange = this.filterNodesInRange(nodes, partSection);
-
-        nodesInRange.forEach((node) =>
-          matchingNodes.push({ node, partSection, executionIndex: i }),
-        );
-      }
-
-      this.logger.debug(
-        `Found ${matchingNodes.length} references for translation key: ${translationKey} across ${partSections.length} part sections`,
+      return this.queryService.queryAllTranslationReferences(
+        templateMap,
+        translationKey,
       );
-      return matchingNodes;
     } catch (error) {
       this.logger.error(`findAllTranslationReferences failed: ${error}`);
       return null;

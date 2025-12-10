@@ -1,5 +1,5 @@
 import { TemplatePartsMapper } from "../../src/templates/templatePartsMapper";
-import { TemplatePartSections } from "../../src/templates/types";
+import { TemplateMap } from "../../src/templates/types";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -23,7 +23,7 @@ interface ExpectedPart {
 }
 
 function validateTemplateParts(
-  result: TemplatePartSections | null,
+  result: TemplateMap | null,
   expectedParts: ExpectedPart[],
   templateName: string,
 ) {
@@ -33,11 +33,20 @@ function validateTemplateParts(
   expect(result).toBeDefined();
   expect(templateName).toBeDefined(); // to avoid unused variable warning
 
-  expect(result.length).toBe(expectedParts.length);
+  const partSections = result.partSections;
+  expect(partSections.length).toBe(expectedParts.length);
+
+  // Validate involvedFiles exists and is an array
+  expect(result.involvedFiles).toBeDefined();
+  expect(Array.isArray(result.involvedFiles)).toBe(true);
+
+  // Validate that involvedFiles contains unique files
+  const uniqueFiles = new Set(result.involvedFiles);
+  expect(uniqueFiles.size).toBe(result.involvedFiles.length);
 
   // Validate each part in exact order
   expectedParts.forEach((expectedPart, index) => {
-    const actualPart = result[index];
+    const actualPart = partSections[index];
     const actualFilename = path.basename(actualPart.fileFullPath);
 
     expect(actualFilename).toBe(expectedPart.file);
@@ -46,6 +55,9 @@ function validateTemplateParts(
 
     // Verify file exists
     expect(fs.existsSync(actualPart.fileFullPath)).toBe(true);
+
+    // Verify file is in involvedFiles list
+    expect(result.involvedFiles).toContain(actualPart.fileFullPath);
   });
 }
 

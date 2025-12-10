@@ -1,13 +1,13 @@
 import { Logger } from "../logger";
 import * as fs from "fs";
 import * as path from "path";
-import { TreeSitterLiquidProvider } from "../liquid/treeSitterLiquidProvider";
 import { IncludeParser } from "../liquid/includeParser";
 import {
   TemplateTypes,
   TemplatePartSections,
   TemplatePartType,
   TemplateDirectories,
+  TemplateMap,
 } from "./types";
 import { IncludeTagInfo } from "../liquid/types";
 
@@ -33,7 +33,6 @@ import { IncludeTagInfo } from "../liquid/types";
 export class TemplatePartsMapper {
   private logger: Logger = new Logger("TemplatePartsMapper");
   private workspaceRoot!: string;
-  private parser: TreeSitterLiquidProvider = new TreeSitterLiquidProvider();
 
   constructor(workspaceRoot: string) {
     this.workspaceRoot = workspaceRoot;
@@ -42,7 +41,7 @@ export class TemplatePartsMapper {
   public generateTemplateMap(
     templateType: TemplateTypes,
     templateName: string,
-  ): TemplatePartSections | null {
+  ): TemplateMap | null {
     const orderedPartSections: TemplatePartSections = [];
 
     const templateDir = path.join(
@@ -62,14 +61,6 @@ export class TemplatePartsMapper {
       return null;
     }
 
-    const mainLiquid = fs.readFileSync(mainTemplatePath, "utf-8");
-    const mainTree = this.parser.parseTree(mainLiquid);
-
-    if (!mainTree) {
-      this.logger.error(`Failed to parse main template: ${mainTemplatePath}`);
-      return null;
-    }
-
     // Start recursive processing with main template
     const processedFiles = new Set<string>(); // Prevent circular includes
     this.processLiquidFileRecursively(
@@ -81,9 +72,37 @@ export class TemplatePartsMapper {
       processedFiles,
     );
 
-    this.logger.debug(JSON.stringify(orderedPartSections, null, 2));
+    // Extract unique file paths in order of first appearance
+    const involvedFiles = this.extractInvolvedFiles(orderedPartSections);
 
-    return orderedPartSections;
+    this.logger.debug(
+      `Template map: ${orderedPartSections.length} sections, ${involvedFiles.length} unique files`,
+    );
+
+    return {
+      partSections: orderedPartSections,
+      involvedFiles,
+    };
+  }
+
+  /**
+   * Extract unique file paths from part sections in order of first appearance.
+   * This allows parsing each file once instead of parsing each section separately.
+   * @param partSections The ordered array of part sections
+   * @returns Array of unique file paths
+   */
+  private extractInvolvedFiles(partSections: TemplatePartSections): string[] {
+    const seenFiles = new Set<string>();
+    const involvedFiles: string[] = [];
+
+    for (const section of partSections) {
+      if (!seenFiles.has(section.fileFullPath)) {
+        seenFiles.add(section.fileFullPath);
+        involvedFiles.push(section.fileFullPath);
+      }
+    }
+
+    return involvedFiles;
   }
 
   /**

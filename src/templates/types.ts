@@ -39,9 +39,33 @@ export interface TemplatePartSection {
 
 export type TemplatePartSections = TemplatePartSection[];
 
+/**
+ * Complete template map containing both execution order and file tracking.
+ *
+ * Performance optimization:
+ * - partSections: Ordered list of sections for execution tracking (can be 222+ sections)
+ * - involvedFiles: Unique list of files used (e.g., 20 files)
+ *
+ * This allows parsing each unique file once (20 parses) instead of parsing
+ * each section separately (222 parses), then sorting results by section order.
+ */
+export interface TemplateMap {
+  partSections: TemplatePartSection[];
+  involvedFiles: string[]; // Unique file paths in order of first appearance
+}
+
+/**
+ * Result of looking up a template map by URI and position.
+ * Includes the template map and the current execution index.
+ */
+export interface TemplateMapContext {
+  templateMap: TemplateMap;
+  currentFileIndex: number;
+}
+
 export type TemplateKey = `${TemplateTypes}/${string}`; // e.g., "reconciliationText/handle"
 
-export type TemplateCollection = Map<TemplateKey, TemplatePartSections>;
+export type TemplateCollection = Map<TemplateKey, TemplateMap>;
 
 // Template directories relative to workspace root
 // Type > directory

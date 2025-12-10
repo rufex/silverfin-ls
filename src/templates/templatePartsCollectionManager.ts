@@ -5,9 +5,10 @@ import { parseTemplateUri } from "../utils/templateUriParser";
 import { TemplateTracker } from "./templateTracker";
 import {
   TemplateTypes,
-  TemplatePartSections,
   TemplateKey,
   TemplateCollection,
+  TemplateMap,
+  TemplateMapContext,
 } from "./types";
 
 /**
@@ -23,7 +24,9 @@ import {
  *
  * @example
  * const manager = TemplatePartsCollectionManager.getInstance(workspaceRoot);
- * const partSections = await manager.getMap('reconciliationText', 'my_template');
+ * const templateMap = await manager.getMap('reconciliationText', 'my_template');
+ * // templateMap.partSections - ordered execution sections
+ * // templateMap.involvedFiles - unique files for efficient parsing
  * await manager.loadMap('accountTemplate', 'invoice_template');
  */
 export class TemplatePartsCollectionManager {
@@ -57,37 +60,37 @@ export class TemplatePartsCollectionManager {
   }
 
   /**
-   * Loads or refreshes a template's part sections mapping.
+   * Loads or refreshes a template's map (part sections + involved files).
    * If the template already exists in the collection, it will be refreshed.
    * @param templateType The type of template to load
    * @param templateName The name of the template to load
-   * @returns Promise resolving to the template part sections or null if loading failed
+   * @returns Promise resolving to the template map or null if loading failed
    */
   public async loadMap(
     templateType: TemplateTypes,
     templateName: string,
-  ): Promise<TemplatePartSections | null> {
+  ): Promise<TemplateMap | null> {
     const templateKey = this.generateTemplateKey(templateType, templateName);
 
     this.logger.debug(`Loading or refreshing template: ${templateKey}`);
 
     try {
-      const partSections = this.templatePartsMapper.generateTemplateMap(
+      const templateMap = this.templatePartsMapper.generateTemplateMap(
         templateType,
         templateName,
       );
 
-      if (partSections) {
-        this.loadedMaps.set(templateKey, partSections);
+      if (templateMap) {
+        this.loadedMaps.set(templateKey, templateMap);
         this.logger.debug(
-          `Successfully loaded template: ${templateKey} with ${partSections.length} part sections`,
+          `Successfully loaded template: ${templateKey} with ${templateMap.partSections.length} part sections, ${templateMap.involvedFiles.length} unique files`,
         );
       } else {
         this.logger.warn(`Failed to load template: ${templateKey}`);
         this.loadedMaps.delete(templateKey);
       }
 
-      return partSections;
+      return templateMap;
     } catch (error) {
       this.logger.error(`Error loading template ${templateKey}: ${error}`);
       this.loadedMaps.delete(templateKey);
@@ -96,24 +99,24 @@ export class TemplatePartsCollectionManager {
   }
 
   /**
-   * Gets a template's part sections mapping.
+   * Gets a template's map (part sections + involved files).
    * If the template is not in the collection, it will be loaded automatically.
    * @param templateType The type of template to get
    * @param templateName The name of the template to get
-   * @returns Promise resolving to the template part sections or null if not found/loadable
+   * @returns Promise resolving to the template map or null if not found/loadable
    */
   public async getMap(
     templateType: TemplateTypes,
     templateName: string,
-  ): Promise<TemplatePartSections | null> {
+  ): Promise<TemplateMap | null> {
     const templateKey = this.generateTemplateKey(templateType, templateName);
 
     if (this.loadedMaps.has(templateKey)) {
-      const loadedPartSections = this.loadedMaps.get(templateKey)!;
+      const loadedMap = this.loadedMaps.get(templateKey)!;
       this.logger.debug(
-        `Retrieved cached template: ${templateKey} with ${loadedPartSections.length} part sections`,
+        `Retrieved cached template: ${templateKey} with ${loadedMap.partSections.length} part sections`,
       );
-      return loadedPartSections;
+      return loadedMap;
     }
 
     // Load if not in collection
@@ -126,15 +129,12 @@ export class TemplatePartsCollectionManager {
    * The URI is parsed to extract the template type and name.
    * If the template is not in the collection, it will be loaded automatically.
    * @param textDocumentUri The document URI containing template info
-   * @returns Promise resolving to the template part sections or null if not found/loadable
+   * @returns Promise resolving to the template map context or null if not found/loadable
    */
   public async getMapAndIndexFromUri(
     textDocumentUri: string,
     currentLine: number,
-  ): Promise<{
-    partSections: TemplatePartSections;
-    currentFileIndex: number;
-  } | null> {
+  ): Promise<TemplateMapContext | null> {
     const templateUriInfo = parseTemplateUri(textDocumentUri);
     if (!templateUriInfo) {
       this.logger.warn(`Could not parse template URI: ${textDocumentUri}`);
@@ -163,20 +163,23 @@ export class TemplatePartsCollectionManager {
       templateName = lastVisited.handle;
     }
 
-    const partSections = await this.getMap(templateType, templateName);
-    if (!partSections) {
+    const templateMap = await this.getMap(templateType, templateName);
+    if (!templateMap) {
       this.logger.warn(
-        `No template part sections found for URI: ${textDocumentUri} (type: ${templateType}, name: ${templateName})`,
+        `No template map found for URI: ${textDocumentUri} (type: ${templateType}, name: ${templateName})`,
       );
       return null;
     }
 
     const index = this.findCurrentFileIndex(
-      partSections,
+      templateMap.partSections,
       textDocumentUri,
       currentLine,
     );
-    return { partSections, currentFileIndex: index };
+    return {
+      templateMap,
+      currentFileIndex: index,
+    };
   }
 
   /**
@@ -238,7 +241,7 @@ export class TemplatePartsCollectionManager {
    * @returns The index of the current file in the part sections array, or -1 if not found
    */
   private findCurrentFileIndex(
-    partSections: TemplatePartSections,
+    partSections: TemplateMap["partSections"],
     textDocumentUri: string,
     currentLine: number,
   ): number {
