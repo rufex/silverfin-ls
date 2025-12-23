@@ -122,6 +122,32 @@ function getPartType(fullPath: string): string {
   }
 }
 
+function computeUniqueFileStats(
+  involvedFiles: string[],
+  partSections: any[],
+) {
+  return involvedFiles.map((filePath, index) => {
+    // Find all sections for this file
+    const fileSections = partSections.filter(
+      (section) => section.fileFullPath === filePath,
+    );
+
+    // Get the actual file size (max endLine + 1 since lines are 0-based)
+    const maxEndLine = Math.max(
+      ...fileSections.map((section) => section.endLine),
+    );
+    const fileLines = maxEndLine + 1;
+
+    return {
+      index,
+      file: path.basename(filePath),
+      fullPath: filePath,
+      type: getPartType(filePath),
+      fileLines,
+    };
+  });
+}
+
 async function analyzeTemplate(templatePath: string, workspaceRoot: string) {
   const manager = TemplatePartsCollectionManager.getInstance(workspaceRoot);
 
@@ -136,6 +162,7 @@ async function analyzeTemplate(templatePath: string, workspaceRoot: string) {
         success: false,
         error: "Template map returned null",
         parts: [],
+        uniqueFiles: [],
       };
     }
 
@@ -150,9 +177,15 @@ async function analyzeTemplate(templatePath: string, workspaceRoot: string) {
       isCurrent: index === result.currentFileIndex,
     }));
 
+    const uniqueFiles = computeUniqueFileStats(
+      result.templateMap.involvedFiles,
+      result.templateMap.partSections,
+    );
+
     return {
       success: true,
       parts,
+      uniqueFiles,
       currentIndex: result.currentFileIndex,
       totalParts: result.templateMap.partSections.length,
     };
@@ -161,6 +194,7 @@ async function analyzeTemplate(templatePath: string, workspaceRoot: string) {
       success: false,
       error: String(error),
       parts: [],
+      uniqueFiles: [],
     };
   }
 }
@@ -216,6 +250,33 @@ async function analyzeSingleTemplate(
 
     console.log(`  ${idx} | ${file} | ${type} | ${lines} |${current}`);
   });
+
+  console.log();
+  console.log("Unique files:");
+  console.log(
+    "  Idx | File                                           | Type         | File Lines",
+  );
+  console.log("  " + "-".repeat(85));
+
+  analysis.uniqueFiles.forEach((file) => {
+    const idx = String(file.index).padStart(3);
+    let fileName = file.file;
+    if (fileName.length > 46) {
+      fileName = "..." + fileName.slice(-43);
+    }
+    fileName = fileName.padEnd(46);
+    const type = file.type.padEnd(12);
+    const fileLines = String(file.fileLines).padStart(10);
+
+    console.log(`  ${idx} | ${fileName} | ${type} | ${fileLines}`);
+  });
+
+  // Calculate total
+  const totalLines = analysis.uniqueFiles.reduce((sum, file) => sum + file.fileLines, 0);
+
+  // Add separator and total row
+  console.log("  " + "-".repeat(85));
+  console.log(`      | ${"TOTAL".padEnd(46)} | ${" ".repeat(12)} | ${String(totalLines).padStart(10)}`);
 }
 
 function findWorkspaceRoot(templatePath: string): string {
@@ -319,6 +380,33 @@ async function main() {
 
       console.log(`  ${idx} | ${file} | ${type} | ${lines} |${current}`);
     });
+
+    console.log();
+    console.log("Unique files:");
+    console.log(
+      "  Idx | File                                           | Type         | File Lines",
+    );
+    console.log("  " + "-".repeat(85));
+
+    analysis.uniqueFiles.forEach((file) => {
+      const idx = String(file.index).padStart(3);
+      let fileName = file.file;
+      if (fileName.length > 46) {
+        fileName = "..." + fileName.slice(-43);
+      }
+      fileName = fileName.padEnd(46);
+      const type = file.type.padEnd(12);
+      const fileLines = String(file.fileLines).padStart(10);
+
+      console.log(`  ${idx} | ${fileName} | ${type} | ${fileLines}`);
+    });
+
+    // Calculate total
+    const totalLines = analysis.uniqueFiles.reduce((sum, file) => sum + file.fileLines, 0);
+
+    // Add separator and total row
+    console.log("  " + "-".repeat(85));
+    console.log(`      | ${"TOTAL".padEnd(46)} | ${" ".repeat(12)} | ${String(totalLines).padStart(10)}`);
   }
 
   console.log("\n" + "=".repeat(80));
@@ -333,6 +421,10 @@ async function main() {
   );
   console.log("  - Line ranges show which lines of each file are in each part");
   console.log("  - 'Current' marks where the cursor is when opening that file");
+  console.log(
+    "  - The 'Unique files' section shows each file once with its line count",
+  );
+  console.log("  - 'File Lines' shows the total number of lines in each file");
   console.log();
 }
 
