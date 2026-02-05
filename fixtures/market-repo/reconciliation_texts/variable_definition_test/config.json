@@ -1,1 +1,5 @@
-{}
+{
+  "text_parts": {
+    "definitions": "text_parts/definitions.liquid"
+  }
+}
