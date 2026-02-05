@@ -65,7 +65,7 @@ export class IncludeParser {
 
     // Find the string node within the include statement
     const stringNode = includeNode.children.find(
-      (child) => child.type === "string",
+      (child: SyntaxNode) => child.type === "string",
     );
     if (!stringNode) {
       return null;

@@ -4,6 +4,7 @@ import {
   TemplateDirectories,
   TemplateUriInfo,
 } from "../templates/types";
+import { ConfigReader } from "../templates/configReader";
 
 /**
  * Parses a template URI to extract comprehensive template information
@@ -74,29 +75,38 @@ export function parseTemplateUri(uri: string): TemplateUriInfo | null {
           };
         }
 
-        // Check if it's a text part: template_dir/template_name/text_parts/part.liquid
-        const textPartsIndex = pathSegments.findIndex(
-          (segment) => segment === "text_parts",
-        );
-        if (
-          textPartsIndex > dirIndex &&
-          textPartsIndex < pathSegments.length - 1
-        ) {
-          const partName = fileName.replace(".liquid", "");
+        // Check if it's a text part using config.json
+        // Build the template directory path
+        const templateDirSegments = pathSegments.slice(0, dirIndex + 2);
+        const templateDirPath = "/" + templateDirSegments.join("/");
 
-          return {
-            templateType: templateType as TemplateTypes,
-            templateName: templateName,
-            partType: "textPart",
-            partName: partName,
-            fullPath: fullPath,
-          };
+        // Get text_parts config for this template
+        const textPartsConfig =
+          ConfigReader.getTextPartsConfig(templateDirPath);
+
+        if (textPartsConfig) {
+          // Calculate relative path from template directory
+          const relativePathSegments = pathSegments.slice(dirIndex + 2);
+          const relativeFromTemplate = relativePathSegments.join("/");
+
+          // Reverse lookup: check if this file path matches any text part in config
+          for (const [partName, partPath] of Object.entries(textPartsConfig)) {
+            if (partPath === relativeFromTemplate) {
+              return {
+                templateType: templateType as TemplateTypes,
+                templateName: templateName,
+                partType: "textPart",
+                partName: partName,
+                fullPath: fullPath,
+              };
+            }
+          }
         }
       }
     }
 
     return null;
-    //eslint-disable-next-line @typescript-eslint/no-unused-vars
+    //eslint-disable-next-line
   } catch (error) {
     // Invalid URI format
     return null;

@@ -83,3 +83,18 @@ export interface TemplateUriInfo {
   partName: string;
   fullPath: string;
 }
+
+/**
+ * Configuration for text parts path mappings
+ * Maps part name to relative path from template directory
+ */
+export interface TextPartsConfig {
+  [partName: string]: string;
+}
+
+/**
+ * Template configuration from config.json
+ */
+export interface TemplateConfig {
+  text_parts?: TextPartsConfig;
+}

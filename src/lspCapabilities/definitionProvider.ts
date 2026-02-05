@@ -4,9 +4,11 @@ import { LiquidTagIdentifier } from "../liquid/liquidTagIdentifier";
 import { LiquidTagFinder } from "../liquid/liquidTagFinder";
 import { URI } from "vscode-uri";
 import * as fs from "fs";
+import * as path from "path";
 import { IncludeParser } from "../liquid/includeParser";
 import { parseTemplateUri } from "../utils/templateUriParser";
 import { TemplateDirectories } from "../templates/types";
+import { ConfigReader } from "../templates/configReader";
 import { SyntaxNode } from "../liquid/treeSitterLiquidProvider";
 
 export class DefinitionProvider {
@@ -90,14 +92,32 @@ export class DefinitionProvider {
     const includeTag = includeParser.identifyIncludeTag(liquidNode);
     const templateInfo = parseTemplateUri(this.textDocumentUri);
     if (includeTag && this.workspaceRoot && templateInfo) {
-      let partPath;
+      let partPath: string | null = null;
+
       if (includeTag.type === "sharedPart") {
         partPath = `${this.workspaceRoot}/shared_parts/${includeTag.name}/${includeTag.name}.liquid`;
+
+        if (!fs.existsSync(partPath)) {
+          this.logger.debug(`File not found for include tag: ${partPath}`);
+          partPath = null;
+        }
       } else if (includeTag.type === "textPart") {
         const templateDir = TemplateDirectories[templateInfo.templateType];
-        partPath = `${this.workspaceRoot}/${templateDir}/${templateInfo.templateName}/text_parts/${includeTag.name}.liquid`;
+        const templateDirPath = path.join(
+          this.workspaceRoot,
+          templateDir,
+          templateInfo.templateName,
+        );
+        partPath = ConfigReader.resolveTextPartPath(
+          templateDirPath,
+          includeTag.name,
+        );
+        if (!partPath) {
+          return null;
+        }
       }
-      if (partPath && fs.existsSync(partPath)) {
+
+      if (partPath) {
         this.logger.debug(`Found file for include tag: ${partPath}`);
         return [
           {
@@ -109,7 +129,6 @@ export class DefinitionProvider {
           },
         ];
       }
-      this.logger.debug(`File not found for include tag: ${partPath}`);
     }
 
     this.logger.warn("No definition found for include tag");

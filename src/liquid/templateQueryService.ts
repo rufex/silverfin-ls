@@ -55,9 +55,7 @@ export class TemplateQueryService {
     }
 
     const duration = Date.now() - startTime;
-    this.logger.debug(
-      `Parsed ${cache.size} unique files in ${duration}ms`,
-    );
+    this.logger.debug(`Parsed ${cache.size} unique files in ${duration}ms`);
     return cache;
   }
 

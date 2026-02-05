@@ -197,6 +197,36 @@ describe("TemplatePartsMapper - Order Validation", () => {
         "definitions_and_references",
       );
     });
+
+    it("custom_paths_test: should resolve text parts from custom directories", () => {
+      const result = mapper.generateTemplateMap(
+        "reconciliationText",
+        "custom_paths_test",
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.partSections.length).toBeGreaterThan(0);
+
+      // Verify that parts from custom directories are included
+      const filePaths = result!.partSections.map((p) => p.fileFullPath);
+      const hasCustomDirPart = filePaths.some((p) =>
+        p.includes("custom_dir/intro.liquid"),
+      );
+      const hasHelpersPart = filePaths.some((p) =>
+        p.includes("helpers/calculations.liquid"),
+      );
+
+      expect(hasCustomDirPart).toBe(true);
+      expect(hasHelpersPart).toBe(true);
+
+      // Verify file names are correct
+      const fileNames = result!.partSections.map((p) =>
+        path.basename(p.fileFullPath),
+      );
+      expect(fileNames).toContain("main.liquid");
+      expect(fileNames).toContain("intro.liquid");
+      expect(fileNames).toContain("calculations.liquid");
+    });
   });
 
   describe("Export Files", () => {

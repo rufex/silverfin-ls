@@ -2,6 +2,7 @@ import { Logger } from "../logger";
 import * as fs from "fs";
 import * as path from "path";
 import { IncludeParser } from "../liquid/includeParser";
+import { ConfigReader } from "./configReader";
 import {
   TemplateTypes,
   TemplatePartSections,
@@ -202,15 +203,17 @@ export class TemplatePartsMapper {
     includeTag: IncludeTagInfo,
     templateDir: string,
   ): string | null {
-    let partFilePath: string;
+    let partFilePath: string | null;
 
     if (includeTag.type === "textPart") {
-      // Text parts are relative to the template directory in text_parts folder
-      partFilePath = path.join(
+      // Text parts are resolved from config.json
+      partFilePath = ConfigReader.resolveTextPartPath(
         templateDir,
-        "text_parts",
-        `${includeTag.name}.liquid`,
+        includeTag.name,
       );
+      if (!partFilePath) {
+        return null;
+      }
     } else if (includeTag.type === "sharedPart") {
       // Shared parts are relative to workspace root in shared_parts/{name}/{name}.liquid structure
       partFilePath = path.join(
@@ -219,13 +222,13 @@ export class TemplatePartsMapper {
         includeTag.name,
         `${includeTag.name}.liquid`,
       );
+
+      if (!fs.existsSync(partFilePath)) {
+        this.logger.warn(`Part file does not exist: ${partFilePath}`);
+        return null;
+      }
     } else {
       this.logger.warn(`Unknown include type: ${includeTag.type}`);
-      return null;
-    }
-
-    if (!fs.existsSync(partFilePath)) {
-      this.logger.warn(`Part file does not exist: ${partFilePath}`);
       return null;
     }
 

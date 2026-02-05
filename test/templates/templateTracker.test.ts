@@ -163,7 +163,7 @@ describe("TemplateTracker", () => {
       const textPartUri = URI.file(
         path.join(
           fixturesPath,
-          "reconciliation_texts/reconciliation_text_2/text_parts/part_1.liquid",
+          "reconciliation_texts/reconciliation_text_3/text_parts/part_1.liquid",
         ),
       ).toString();
       tracker.updateFromUri(textPartUri);
@@ -171,7 +171,7 @@ describe("TemplateTracker", () => {
 
       expect(afterVisit).not.toEqual(beforeVisit);
       expect(afterVisit!.type).toBe("reconciliationText");
-      expect(afterVisit!.handle).toBe("reconciliation_text_2");
+      expect(afterVisit!.handle).toBe("reconciliation_text_3");
     });
   });
 
