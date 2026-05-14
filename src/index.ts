@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { LiquidLanguageServer } from "./server";
 
 const server = new LiquidLanguageServer();
