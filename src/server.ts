@@ -173,7 +173,7 @@ export class LiquidLanguageServer {
       } else {
         this.settings = {
           ...DEFAULT_SETTINGS,
-          ...(change.settings.liquidLS || {}),
+          ...(change.settings.silverfinLS || {}),
         };
       }
       this.logger.info(

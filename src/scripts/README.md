@@ -1,6 +1,6 @@
 # Scripts
 
-This directory contains debug scripts for analyzing and understanding the internal workings of the liquid-ls language server.
+This directory contains debug scripts for analyzing and understanding the internal workings of the silverfin-ls language server.
 
 ## Available Scripts
 

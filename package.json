@@ -1,8 +1,8 @@
 {
-  "name": "liquid-ls",
+  "name": "silverfin-ls",
   "version": "0.1.0",
   "bin": {
-    "liquid-ls": "./out/index.js"
+    "silverfin-ls": "./out/index.js"
   },
   "scripts": {
     "build": "tsc && cp -r docs out/",

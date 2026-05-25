@@ -43,7 +43,7 @@ When working from shared parts, the language server needs to know which template
 
 ```json
 {
-  "liquidLS": {
+  "silverfinLS": {
     "hover": {
       "enabled": false
     },
